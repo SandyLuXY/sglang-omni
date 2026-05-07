@@ -24,7 +24,7 @@ class Qwen3OmniPipelineConfig(PipelineConfig):
         StageConfig(
             name="preprocessing",
             factory=f"{_PKG}.stages.create_preprocessing_executor",
-            factory_args={"thinker_max_seq_len": 8192},
+            factory_args={"thinker_max_seq_len": 32768},
             next=["image_encoder", "audio_encoder", "mm_aggregate"],
             project_payload={
                 "image_encoder": (
@@ -72,7 +72,7 @@ class Qwen3OmniPipelineConfig(PipelineConfig):
         StageConfig(
             name="thinker",
             factory=f"{_PKG}.stages.create_sglang_thinker_executor_from_config",
-            factory_args={"thinker_max_seq_len": 8192},
+            factory_args={"thinker_max_seq_len": 32768},
             gpu=0,
             next="decode",
         ),
@@ -98,7 +98,7 @@ class Qwen3OmniSpeechPipelineConfig(PipelineConfig):
         StageConfig(
             name="preprocessing",
             factory=f"{_PKG}.stages.create_preprocessing_executor",
-            factory_args={"thinker_max_seq_len": 8192},
+            factory_args={"thinker_max_seq_len": 32768},
             next=["image_encoder", "audio_encoder", "mm_aggregate"],
             project_payload={
                 "image_encoder": (
@@ -146,7 +146,7 @@ class Qwen3OmniSpeechPipelineConfig(PipelineConfig):
         StageConfig(
             name="thinker",
             factory=f"{_PKG}.stages.create_sglang_thinker_executor_from_config",
-            factory_args={"thinker_max_seq_len": 8192, "speech_enabled": True},
+            factory_args={"thinker_max_seq_len": 32768, "speech_enabled": True},
             gpu=0,
             next=["decode", "talker_ar"],
             stream_to=["talker_ar"],
