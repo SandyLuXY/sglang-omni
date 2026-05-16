@@ -71,10 +71,10 @@ Accuracy (accuracy.wer)
 
 | Model  | Config           | wer_corpus | wer_per_sample_mean | wer_per_sample_median | wer_per_sample_std | evaluated | skipped | Source                         |
 | ------ | ---------------- | ---------- | ------------------- | --------------------- | ------------------ | --------- | ------- | ------------------------------ |
-| S2-Pro | EN, stream=False | 1.07%      | 1.03%               | 0.00%                 | 3.6%               | 1088/1088 | 0       | PR #411 [H200, full-set, c=16] |
-| S2-Pro | EN, stream=True  | 1.05%      | 1.00%               | 0.00%                 | 3.5%               | 1088/1088 | 0       | PR #411 [H200, full-set, c=16] |
-| S2-Pro | ZH, stream=False | 1.02%      | 0.98%               | 0.00%                 | 3.3%               | 2020/2020 | 0       | PR #411 [H200, full-set, c=16] |
-| S2-Pro | ZH, stream=True  | 0.93%      | 0.89%               | 0.00%                 | 2.2%               | 2020/2020 | 0       | PR #411 [H200, full-set, c=16] |
+| S2-Pro | EN, stream=False | 1.06%      | 1.04%               | 0.00%                 | 3.5%               | 1088/1088 | 0       | dirty ca87d3f [H200, full-set, c=16] |
+| S2-Pro | EN, stream=True  | 1.06%      | 1.01%               | 0.00%                 | 3.4%               | 1088/1088 | 0       | dirty ca87d3f [H200, full-set, c=16] |
+| S2-Pro | ZH, stream=False | 0.92%      | 0.87%               | 0.00%                 | 2.2%               | 2020/2020 | 0       | dirty 821f654 [H200, full-set, c=16] |
+| S2-Pro | ZH, stream=True  | 0.98%      | 0.93%               | 0.00%                 | 2.4%               | 2020/2020 | 0       | dirty 821f654 [H200, full-set, c=16] |
 | S2-Pro | EN, stream=False | 1.03%      | 0.98%               | 0.00%                 | 3.4%               | 1088/1088 | 0       | PR #351 [H100, full-set, c=16] |
 | S2-Pro | EN, stream=True  | 0.98%      | 0.94%               | 0.00%                 | 3.3%               | 1088/1088 | 0       | PR #351 [H100, full-set, c=16] |
 | S2-Pro | ZH, stream=False | 0.93%      | 0.89%               | 0.00%                 | 2.2%               | 2020/2020 | 0       | PR #351 [H100, full-set, c=16] |
@@ -89,10 +89,10 @@ Generation speed (generation.speed)
 
 | Model  | Config           | latency_mean_s | latency_p95_s | rtf_mean | throughput_qps | tok_per_s_mean | tok_per_s_agg | Source                         |
 | ------ | ---------------- | -------------- | ------------- | -------- | -------------- | -------------- | ------------- | ------------------------------ |
-| S2-Pro | EN, stream=False | 15.836         | 21.509        | 4.269    | 1.005          | 75.3           | 75.0          | PR #411 [H200, full-set, c=16] |
-| S2-Pro | EN, stream=True  | 16.135         | 21.733        | 4.357    | 0.985          | 74.5           | 74.1          | PR #411 [H200, full-set, c=16] |
-| S2-Pro | ZH, stream=False | 16.114         | 20.092        | 3.018    | 0.990          | 73.6           | 73.1          | PR #411 [H200, full-set, c=16] |
-| S2-Pro | ZH, stream=True  | 17.070         | 22.120        | 3.203    | 0.935          | 72.1           | 71.5          | PR #411 [H200, full-set, c=16] |
+| S2-Pro | EN, stream=False | 16.570         | 22.917        | 4.476    | 0.961          | 72.7           | 72.2          | dirty ca87d3f [H200, V1-pipeline, full-set, c=16] |
+| S2-Pro | EN, stream=True  | 17.076         | 23.329        | 4.602    | 0.931          | 73.5           | 73.0          | dirty ca87d3f [H200, V1-pipeline, full-set, c=16] |
+| S2-Pro | ZH, stream=False | 17.018         | 21.605        | 3.192    | 0.938          | 71.8           | 71.1          | dirty ca87d3f [H200, V1-pipeline, full-set, c=16] |
+| S2-Pro | ZH, stream=True  | 17.374         | 22.041        | 3.268    | 0.918          | 71.5           | 70.8          | dirty ca87d3f [H200, V1-pipeline, full-set, c=16] |
 | S2-Pro | EN, stream=False | 9.38           | 14.65         | 2.48     | 1.700          | 56.6           | 56.0          | PR #351 [H100, full-set, c=16] |
 | S2-Pro | EN, stream=True  | 9.92           | 15.49         | 2.62     | 1.607          | 53.9           | 53.2          | PR #351 [H100, full-set, c=16] |
 | S2-Pro | ZH, stream=False | 9.64           | 13.61         | 1.80     | 1.655          | 55.7           | 55.2          | PR #351 [H100, full-set, c=16] |

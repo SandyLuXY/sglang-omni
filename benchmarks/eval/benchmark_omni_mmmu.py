@@ -35,8 +35,8 @@ Accuracy (summary)
 
 | Model      | Config             | accuracy | correct | failed | mc_fallback | Source                                                 |
 | ---------- | ------------------ | -------- | ------- | ------ | ----------- | ------------------------------------------------------ |
-| Qwen3-Omni | enable_audio=False | 67.89%   | 611/900 | 0      | 22          | PR #411 [H200, V1-pipeline, full-set, c=8, max_tokens=2048]   |
-| Qwen3-Omni | enable_audio=True  | 62.00%   | 31/50   | 0      | 3           | PR #411 [H200, V1-pipeline, 50-sample subset, c=1, max_tokens=2048] |
+| Qwen3-Omni | enable_audio=False | 67.67%   | 609/900 | 0      | 26          | local 25824e4 [H200, V1-pipeline, full-set, c=8, max_tokens=2048]   |
+| Qwen3-Omni | enable_audio=True  | 60.00%   | 30/50   | 0      | 2           | local 25824e4 [H200, V1-pipeline, 50-sample subset, c=1, max_tokens=2048] |
 | Qwen3-Omni | enable_audio=False | 66.11%   | 595/900 | 0      | 28          | PR #351 [H100, full-set, c=8, max_tokens=2048, text-only server] |
 | Qwen3-Omni | enable_audio=True  | 18.00%   | 9/50    | 21     | 20          | PR #351 [H100, 50-sample subset, c=1, max_tokens=64, timeout=120s] |
 | Qwen3-Omni | enable_audio=False | 66.67%   | 600/900 | 0      | 28          | PR #411 [H100, V1-pipeline, full-set, c=8, max_tokens=2048] |
@@ -49,8 +49,8 @@ Speed (speed)
 
 | Model      | Config             | latency_mean_s | latency_p95_s | throughput_qps | tok_per_s_mean | tok_per_s_agg | Source                                                     |
 | ---------- | ------------------ | -------------- | ------------- | -------------- | -------------- | ------------- | ---------------------------------------------------------- |
-| Qwen3-Omni | enable_audio=False | 5.987          | 21.167        | 1.313          | 81.1           | 85.0          | PR #411 [H200, V1-pipeline, full-set, c=8, max_tokens=2048]       |
-| Qwen3-Omni | enable_audio=True  | 20.364         | 47.493        | 0.048          | 25.5           | 30.1          | PR #411 [H200, V1-pipeline, **50-sample subset**, c=1, max_tokens=2048] |
+| Qwen3-Omni | enable_audio=False | 6.082          | 21.408        | 1.290          | 80.2           | 84.7          | local 25824e4 [H200, V1-pipeline, full-set, c=8, max_tokens=2048]       |
+| Qwen3-Omni | enable_audio=True  | 20.067         | 46.748        | 0.049          | 33.7           | 29.1          | local 25824e4 [H200, V1-pipeline, **50-sample subset**, c=1, max_tokens=2048] |
 | Qwen3-Omni | enable_audio=False | 20.297         | 74.122        | 0.392          | 24.9           | 25.4          | PR #351 [H100, full-set, c=8, max_tokens=2048, text-only server] |
 | Qwen3-Omni | enable_audio=True  | 19.579         | 23.147        | 0.009          | 3.3            | 3.3           | PR #351 [H100, 50-sample subset, c=1, max_tokens=64, timeout=120s] |
 | Qwen3-Omni | enable_audio=False | 7.180          | 25.633        | 1.101          | 69.1           | 72.5          | PR #411 [H100, V1-pipeline, full-set, c=8, max_tokens=2048] |
