@@ -79,6 +79,10 @@ Accuracy (accuracy.wer)
 | S2-Pro | EN, stream=True  | 0.98%      | 0.94%               | 0.00%                 | 3.3%               | 1088/1088 | 0       | PR #351 [H100, full-set, c=16] |
 | S2-Pro | ZH, stream=False | 0.93%      | 0.89%               | 0.00%                 | 2.2%               | 2020/2020 | 0       | PR #351 [H100, full-set, c=16] |
 | S2-Pro | ZH, stream=True  | 0.98%      | 0.94%               | 0.00%                 | 2.4%               | 2020/2020 | 0       | PR #351 [H100, full-set, c=16] |
+| S2-Pro | EN, stream=False | 1.16%      | 1.12%               | 0.00%                 | 3.7%               | 1088/1088 | 0       | PR #411 [H100, full-set, c=16] |
+| S2-Pro | EN, stream=True  | 1.06%      | 1.02%               | 0.00%                 | 3.5%               | 1088/1088 | 0       | PR #411 [H100, full-set, c=16] |
+| S2-Pro | ZH, stream=False | 0.92%      | 0.87%               | 0.00%                 | 2.1%               | 2020/2020 | 0       | PR #411 [H100, full-set, c=16] |
+| S2-Pro | ZH, stream=True  | 0.90%      | 0.86%               | 0.00%                 | 2.1%               | 2020/2020 | 0       | PR #411 [H100, full-set, c=16] |
 
 
 Generation speed (generation.speed)
@@ -93,6 +97,10 @@ Generation speed (generation.speed)
 | S2-Pro | EN, stream=True  | 9.92           | 15.49         | 2.62     | 1.607          | 53.9           | 53.2          | PR #351 [H100, full-set, c=16] |
 | S2-Pro | ZH, stream=False | 9.64           | 13.61         | 1.80     | 1.655          | 55.7           | 55.2          | PR #351 [H100, full-set, c=16] |
 | S2-Pro | ZH, stream=True  | 9.27           | 13.11         | 1.74     | 1.722          | 51.7           | 51.1          | PR #351 [H100, full-set, c=16] |
+| S2-Pro | EN, stream=False | 12.247         | 16.703        | 3.289    | 1.299          | 67.9           | 67.8          | PR #411 [H100, V1-pipeline, full-set, c=16] |
+| S2-Pro | EN, stream=True  | 12.164         | 16.717        | 3.265    | 1.308          | 67.1           | 67.0          | PR #411 [H100, V1-pipeline, full-set, c=16] |
+| S2-Pro | ZH, stream=False | 12.028         | 15.526        | 2.256    | 1.327          | 65.9           | 65.7          | PR #411 [H100, V1-pipeline, full-set, c=16] |
+| S2-Pro | ZH, stream=True  | 11.417         | 15.020        | 2.141    | 1.398          | 65.7           | 65.5          | PR #411 [H100, V1-pipeline, full-set, c=16] |
 
 Note (Chenyang): tok_per_s_{mean,agg} here counts S2-Pro's codec tokens.  It is NOT
 comparable to the tok_per_s column reported for Qwen3-Omni in benchmark_omni_seedtts.py,

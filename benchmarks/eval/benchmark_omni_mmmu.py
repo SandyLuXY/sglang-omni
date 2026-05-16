@@ -39,6 +39,8 @@ Accuracy (summary)
 | Qwen3-Omni | enable_audio=True  | 62.00%   | 31/50   | 0      | 3           | PR #411 [H200, V1-pipeline, 50-sample subset, c=1, max_tokens=2048] |
 | Qwen3-Omni | enable_audio=False | 66.11%   | 595/900 | 0      | 28          | PR #351 [H100, full-set, c=8, max_tokens=2048, text-only server] |
 | Qwen3-Omni | enable_audio=True  | 18.00%   | 9/50    | 21     | 20          | PR #351 [H100, 50-sample subset, c=1, max_tokens=64, timeout=120s] |
+| Qwen3-Omni | enable_audio=False | 66.67%   | 600/900 | 0      | 28          | PR #411 [H100, V1-pipeline, full-set, c=8, max_tokens=2048] |
+| Qwen3-Omni | enable_audio=True  | 68.00%   | 34/50   | 0      | 2           | PR #411 [H100, V1-pipeline, 50-sample subset, c=1, max_tokens=2048] |
 
 Note (Xuesong): full 900 not runfor enable_audio = True — Issue #276 talker is c=1 only and ~2 min/sample (~30 h for full set). 15/50 requests failed
  in audio generation (Issue #276); on the 35 completed requests accuracy = 65.7%.
@@ -51,6 +53,8 @@ Speed (speed)
 | Qwen3-Omni | enable_audio=True  | 20.364         | 47.493        | 0.048          | 25.5           | 30.1          | PR #411 [H200, V1-pipeline, **50-sample subset**, c=1, max_tokens=2048] |
 | Qwen3-Omni | enable_audio=False | 20.297         | 74.122        | 0.392          | 24.9           | 25.4          | PR #351 [H100, full-set, c=8, max_tokens=2048, text-only server] |
 | Qwen3-Omni | enable_audio=True  | 19.579         | 23.147        | 0.009          | 3.3            | 3.3           | PR #351 [H100, 50-sample subset, c=1, max_tokens=64, timeout=120s] |
+| Qwen3-Omni | enable_audio=False | 7.180          | 25.633        | 1.101          | 69.1           | 72.5          | PR #411 [H100, V1-pipeline, full-set, c=8, max_tokens=2048] |
+| Qwen3-Omni | enable_audio=True  | 17.124         | 43.292        | 0.057          | 28.5           | 32.9          | PR #411 [H100, V1-pipeline, **50-sample subset**, c=1, max_tokens=2048] |
 
 Local v1 Pipeline Result (this workspace, 2026-05-01)
 
