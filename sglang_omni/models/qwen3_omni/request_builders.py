@@ -493,8 +493,8 @@ def build_sglang_talker_request(
 ) -> "SGLangARRequestData":
     """Build SGLang AR request for the Talker from thinker hidden states.
 
-    Stores thinker hidden states as Req.input_embeds so SGLang's pipeline
-    passes them through ForwardBatch.input_embeds -> model.forward(input_embeds=...).
+    Keeps embedding tensors GPU-resident on SGLangARRequestData.prefill_input_embeds
+    so the model runner can read them directly without a list round-trip.
     Uses dummy input_ids of matching length for position tracking, while the
     request data keeps a device-backed FIFO of future text rows for decode.
 
@@ -509,20 +509,15 @@ def build_sglang_talker_request(
     # SGLangARRequestData already imported at module level
 
     if talker_input_embeds is not None:
-        input_embeds = talker_input_embeds.float().cpu().tolist()
+        prefill_embeds_tensor = talker_input_embeds
         input_ids_tensor = torch.as_tensor(talker_input_ids, dtype=torch.long)
         input_ids_list = input_ids_tensor.tolist()
         seq_len = len(input_ids_list)
     else:
-        # thinker_hidden_states: [seq_len, thinker_hidden_size]
         seq_len = thinker_hidden_states.shape[0]
-
-        # Dummy input_ids — codec BOS token repeated for each position
         input_ids_list = [codec_bos_id] * seq_len
         input_ids_tensor = torch.tensor(input_ids_list, dtype=torch.long)
-
-        # Convert hidden states to list-of-lists for Req.input_embeds
-        input_embeds = thinker_hidden_states.float().cpu().tolist()
+        prefill_embeds_tensor = thinker_hidden_states
 
     sampling_params = SamplingParams(
         max_new_tokens=max_new_tokens,
@@ -543,7 +538,7 @@ def build_sglang_talker_request(
         origin_input_text="",
         origin_input_ids=input_ids_list,
         sampling_params=sampling_params,
-        input_embeds=input_embeds,
+        input_embeds=None,
         eos_token_ids={int(codec_eos_id)} if codec_eos_id is not None else None,
         vocab_size=codec_vocab_size,
     )
@@ -591,6 +586,7 @@ def build_sglang_talker_request(
         temperature=temperature,
         output_ids=req.output_ids,
         req=req,
+        prefill_input_embeds=prefill_embeds_tensor,
     )
     data.suppress_tokens = list(req._codec_suppress_tokens or [])
     data.talker_model_inputs = dict(talker_model_inputs or {})

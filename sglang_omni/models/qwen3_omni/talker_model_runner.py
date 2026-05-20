@@ -68,6 +68,9 @@ class QwenTalkerModelRunner(ModelRunner):
         schedule_batch: Any,
         requests: list,
     ) -> None:
+        for sched_req in requests:
+            sched_req.data.prefill_input_embeds = None
+
         if not self._feedback_enabled:
             return
 
@@ -170,20 +173,28 @@ class QwenTalkerModelRunner(ModelRunner):
         ]
         input_embeds_are_projected = bool(projected_flags) and all(projected_flags)
         if input_embeds is None:
-            rows = []
+            parts: list[torch.Tensor] = []
             for sched_req in requests:
-                req = sched_req.data.req
-                embeds = req.input_embeds
-                if embeds:
-                    prefix_len = len(req.prefix_indices)
-                    rows.extend(embeds[prefix_len:])
-            if not rows:
+                tensor = sched_req.data.prefill_input_embeds
+                if tensor is not None:
+                    parts.append(tensor)
+                else:
+                    req = sched_req.data.req
+                    embeds = req.input_embeds
+                    if embeds:
+                        prefix_len = len(req.prefix_indices)
+                        list_rows = embeds[prefix_len:]
+                        if list_rows:
+                            parts.append(
+                                torch.as_tensor(
+                                    list_rows,
+                                    device=forward_batch.input_ids.device,
+                                    dtype=torch.float32,
+                                )
+                            )
+            if not parts:
                 return None
-            input_embeds = torch.as_tensor(
-                rows,
-                device=forward_batch.input_ids.device,
-                dtype=torch.float32,
-            )
+            input_embeds = torch.cat(parts, dim=0)
 
         result = self._forward_with_input_embeds(
             forward_batch,

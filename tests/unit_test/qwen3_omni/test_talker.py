@@ -16,8 +16,10 @@ from sglang_omni.models.qwen3_omni.pending_text_queue import (
     PendingTextTensorQueue,
     coerce_pending_text_queue,
 )
+from sglang_omni.models.qwen3_omni.request_builders import build_sglang_talker_request
 from sglang_omni.models.qwen3_omni.talker_model_runner import QwenTalkerModelRunner
 from sglang_omni.models.qwen3_omni.talker_scheduler import QwenTalkerScheduler
+from tests.unit_test.fixtures.qwen_fakes import FakeQwenTokenizer
 
 
 def _sched_req(**data_kwargs: object) -> SimpleNamespace:
@@ -356,3 +358,112 @@ def test_qwen_model_runner_and_code_predictor_tensor_contracts() -> None:
     sampled = Qwen3OmniTalker._sample_code_predictor_token(logits)
     assert sampled.shape == (2, 1)
     assert sampled[:, 0].tolist() == [2, 0]
+
+
+def _patch_sglang_sampling(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "sglang.srt.sampling.sampling_params.SamplingParams.normalize",
+        lambda self, tokenizer: None,
+    )
+    monkeypatch.setattr(
+        "sglang.srt.sampling.sampling_params.SamplingParams.verify",
+        lambda self, vocab_size: None,
+    )
+
+
+def test_build_talker_request_stores_tensor_via_projected_embeds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Projected talker embeds are kept as a tensor, not converted to a list."""
+    _patch_sglang_sampling(monkeypatch)
+
+    seq_len, hidden = 64, 128
+    talker_embeds = torch.randn(seq_len, hidden)
+    talker_ids = torch.arange(seq_len, dtype=torch.long)
+
+    data = build_sglang_talker_request(
+        thinker_hidden_states=torch.empty(0),
+        tokenizer=FakeQwenTokenizer(),
+        codec_vocab_size=4096,
+        talker_input_embeds=talker_embeds,
+        talker_input_ids=talker_ids,
+        input_embeds_are_projected=True,
+    )
+
+    assert data.prefill_input_embeds is talker_embeds
+    assert data.req.input_embeds is None
+    assert data.input_embeds_are_projected is True
+    assert data.input_ids.shape == (seq_len,)
+
+
+def test_build_talker_request_stores_tensor_via_hidden_states(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Thinker hidden states path also keeps the tensor on data, not Req."""
+    _patch_sglang_sampling(monkeypatch)
+
+    seq_len, hidden = 32, 256
+    hidden_states = torch.randn(seq_len, hidden)
+
+    data = build_sglang_talker_request(
+        thinker_hidden_states=hidden_states,
+        tokenizer=FakeQwenTokenizer(),
+        codec_vocab_size=4096,
+    )
+
+    assert data.prefill_input_embeds is hidden_states
+    assert data.req.input_embeds is None
+    assert data.input_ids.shape == (seq_len,)
+
+
+def test_projected_prefill_reads_tensor_from_data() -> None:
+    """Model runner reads prefill_input_embeds from request data, not Req."""
+    embeds = torch.randn(10, 64)
+    sched_req = _sched_req(
+        input_embeds_are_projected=True,
+        prefill_input_embeds=embeds,
+        req=SimpleNamespace(input_embeds=None, prefix_indices=[]),
+    )
+    forward_batch = SimpleNamespace(
+        input_embeds=None,
+        input_ids=torch.zeros(10, dtype=torch.long),
+    )
+
+    captured: dict[str, torch.Tensor] = {}
+    orig_forward = QwenTalkerModelRunner._forward_with_input_embeds
+
+    def capture_forward(self, forward_batch, *, input_embeds, **kwargs):
+        captured["input_embeds"] = input_embeds
+        return SimpleNamespace(next_token_ids=None, logits_output=None)
+
+    runner = object.__new__(QwenTalkerModelRunner)
+    runner._forward_with_input_embeds = capture_forward.__get__(runner)
+
+    runner._run_projected_prefill_forward(
+        forward_batch, schedule_batch=None, requests=[sched_req]
+    )
+
+    assert "input_embeds" in captured
+    assert torch.equal(captured["input_embeds"], embeds)
+
+
+def test_post_prefill_clears_prefill_embeds() -> None:
+    """post_prefill releases the prefill_input_embeds reference."""
+    embeds = torch.randn(4, 8)
+    sched_req = _sched_req(
+        prefill_input_embeds=embeds,
+        pending_feedback_queue=deque(),
+        pending_text_queue=deque(),
+        tts_pad_embed=None,
+        thinker_chunks_done=True,
+    )
+
+    runner = object.__new__(QwenTalkerModelRunner)
+    runner._feedback_enabled = False
+
+    result = SimpleNamespace(next_token_ids=None)
+    runner.post_prefill(
+        result, forward_batch=None, schedule_batch=None, requests=[sched_req]
+    )
+
+    assert sched_req.data.prefill_input_embeds is None
