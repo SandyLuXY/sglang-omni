@@ -68,9 +68,8 @@ class QwenTalkerModelRunner(ModelRunner):
         schedule_batch: Any,
         requests: list,
     ) -> None:
-        for sched_req in requests:
-            sched_req.data.prefill_input_embeds = None
-
+        # Note (Xuesong): Do not clear data.prefill_input_embeds: decode retract may requeue
+        # the Req for another prefill pass and Req.input_embeds is None.
         if not self._feedback_enabled:
             return
 

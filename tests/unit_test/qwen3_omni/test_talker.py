@@ -567,10 +567,11 @@ def test_projected_prefill_full_prefix_hit_returns_none() -> None:
     assert result is None
 
 
-def test_post_prefill_clears_prefill_embeds() -> None:
-    """post_prefill releases the prefill_input_embeds reference."""
+def test_post_prefill_preserves_prefill_embeds_for_retract() -> None:
+    """post_prefill keeps prefill_input_embeds so retract can re-prefill."""
+    embeds = torch.randn(4, 8)
     sched_req = _sched_req(
-        prefill_input_embeds=torch.randn(4, 8),
+        prefill_input_embeds=embeds,
         pending_feedback_queue=deque(),
         pending_text_queue=deque(),
         tts_pad_embed=None,
@@ -586,7 +587,58 @@ def test_post_prefill_clears_prefill_embeds() -> None:
         schedule_batch=None,
         requests=[sched_req],
     )
-    assert sched_req.data.prefill_input_embeds is None
+    assert sched_req.data.prefill_input_embeds is embeds
+
+
+def test_projected_prefill_survives_decode_retract() -> None:
+    """Re-prefill after a simulated decode retract still feeds projected embeds."""
+    full_embeds = torch.randn(10, 64)
+    sched_req = _sched_req(
+        input_embeds_are_projected=True,
+        prefill_input_embeds=full_embeds,
+        req=SimpleNamespace(
+            input_embeds=None,
+            prefix_indices=[],
+            extend_input_len=10,
+        ),
+        pending_feedback_queue=deque(),
+        pending_text_queue=deque(),
+        tts_pad_embed=None,
+        thinker_chunks_done=True,
+    )
+    forward_batch = SimpleNamespace(
+        input_embeds=None,
+        input_ids=torch.zeros(10, dtype=torch.long),
+    )
+
+    runner = object.__new__(QwenTalkerModelRunner)
+    runner._feedback_enabled = False
+    runner._forward_with_input_embeds = (
+        lambda self, fb, *, input_embeds, **kw: SimpleNamespace(
+            next_token_ids=None, logits_output=None, _embeds=input_embeds
+        )
+    ).__get__(runner)
+
+    first = runner._run_projected_prefill_forward(
+        forward_batch, schedule_batch=None, requests=[sched_req]
+    )
+    assert torch.equal(first._embeds, full_embeds)
+
+    runner.post_prefill(
+        first,
+        forward_batch=None,
+        schedule_batch=None,
+        requests=[sched_req],
+    )
+
+    sched_req.data.req.prefix_indices = []
+    sched_req.data.req.extend_input_len = 10
+
+    second = runner._run_projected_prefill_forward(
+        forward_batch, schedule_batch=None, requests=[sched_req]
+    )
+    assert second is not None, "retract+re-prefill must not silently lose embeds"
+    assert torch.equal(second._embeds, full_embeds)
 
 
 @pytest.mark.benchmark
