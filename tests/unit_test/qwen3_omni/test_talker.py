@@ -392,8 +392,7 @@ class TestBuildTalkerRequestTensorStorage:
         )
 
         assert data.prefill_input_embeds is embeds
-        assert isinstance(data.req.input_embeds, list)
-        assert len(data.req.input_embeds) == seq_len
+        assert data.req.input_embeds is None
         assert data.input_embeds_are_projected is True
 
     def test_hidden_states_path(self) -> None:
@@ -406,7 +405,7 @@ class TestBuildTalkerRequestTensorStorage:
             codec_vocab_size=4096,
         )
 
-        assert data.prefill_input_embeds is hidden_states
+        assert data.prefill_input_embeds is None
         assert isinstance(data.req.input_embeds, list)
         assert len(data.req.input_embeds) == seq_len
 
@@ -436,6 +435,58 @@ def test_projected_prefill_reads_tensor_from_data() -> None:
     )
 
     assert torch.equal(result._embeds, embeds)
+
+
+def test_projected_prefill_slices_tensor_by_prefix_indices() -> None:
+    """Tensor path slices by prefix_indices, matching the list fallback."""
+    full_embeds = torch.randn(10, 64)
+    prefix_len = 3
+    sched_req = _sched_req(
+        input_embeds_are_projected=True,
+        prefill_input_embeds=full_embeds,
+        req=SimpleNamespace(input_embeds=None, prefix_indices=list(range(prefix_len))),
+    )
+    forward_batch = SimpleNamespace(
+        input_embeds=None,
+        input_ids=torch.zeros(7, dtype=torch.long),
+    )
+
+    runner = object.__new__(QwenTalkerModelRunner)
+    runner._forward_with_input_embeds = (
+        lambda self, fb, *, input_embeds, **kw: SimpleNamespace(
+            next_token_ids=None, logits_output=None, _embeds=input_embeds
+        )
+    ).__get__(runner)
+
+    result = runner._run_projected_prefill_forward(
+        forward_batch, schedule_batch=None, requests=[sched_req]
+    )
+
+    expected = full_embeds[prefix_len:]
+    assert result._embeds.shape == expected.shape
+    assert torch.equal(result._embeds, expected)
+
+
+def test_projected_prefill_full_prefix_hit_returns_none() -> None:
+    """Full prefix hit produces no embeds, method returns None."""
+    embeds = torch.randn(5, 64)
+    sched_req = _sched_req(
+        input_embeds_are_projected=True,
+        prefill_input_embeds=embeds,
+        req=SimpleNamespace(input_embeds=None, prefix_indices=list(range(5))),
+    )
+    forward_batch = SimpleNamespace(
+        input_embeds=None,
+        input_ids=torch.zeros(0, dtype=torch.long),
+    )
+
+    runner = object.__new__(QwenTalkerModelRunner)
+
+    result = runner._run_projected_prefill_forward(
+        forward_batch, schedule_batch=None, requests=[sched_req]
+    )
+
+    assert result is None
 
 
 def test_post_prefill_clears_prefill_embeds() -> None:

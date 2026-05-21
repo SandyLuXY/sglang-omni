@@ -177,7 +177,11 @@ class QwenTalkerModelRunner(ModelRunner):
             for sched_req in requests:
                 tensor = sched_req.data.prefill_input_embeds
                 if tensor is not None:
-                    parts.append(tensor)
+                    prefix_len = len(sched_req.data.req.prefix_indices)
+                    if prefix_len > 0:
+                        tensor = tensor[prefix_len:]
+                    if tensor.shape[0] > 0:
+                        parts.append(tensor)
                 else:
                     req = sched_req.data.req
                     embeds = req.input_embeds
