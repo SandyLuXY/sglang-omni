@@ -543,6 +543,63 @@ def test_projected_prefill_list_fallback_slices_by_extend_input_len() -> None:
     assert torch.allclose(result._embeds, expected)
 
 
+def test_projected_prefill_prefers_request_data_over_forward_embeds() -> None:
+    """Projected rows live on request data, not ForwardBatch.input_embeds."""
+    embeds = torch.randn(4, 8)
+    stale_forward_embeds = torch.full((2, 8), -1.0)
+    sched_req = _sched_req(
+        input_embeds_are_projected=True,
+        prefill_input_embeds=embeds,
+        req=SimpleNamespace(input_embeds=None, prefix_indices=[], extend_input_len=4),
+    )
+    forward_batch = SimpleNamespace(
+        input_embeds=stale_forward_embeds,
+        input_ids=torch.zeros(4, dtype=torch.long),
+    )
+
+    runner = object.__new__(QwenTalkerModelRunner)
+    runner._forward_with_input_embeds = (
+        lambda self, fb, *, input_embeds, **kw: SimpleNamespace(
+            next_token_ids=None, logits_output=None, _embeds=input_embeds
+        )
+    ).__get__(runner)
+
+    result = runner._run_projected_prefill_forward(
+        forward_batch, schedule_batch=None, requests=[sched_req]
+    )
+
+    assert torch.equal(result._embeds, embeds)
+
+
+def test_projected_prefill_rejects_mixed_projected_and_list_batch() -> None:
+    """The model forward has one projection mode, so mixed batches are invalid."""
+    projected_req = _sched_req(
+        input_embeds_are_projected=True,
+        prefill_input_embeds=torch.randn(2, 8),
+        req=SimpleNamespace(input_embeds=None, prefix_indices=[], extend_input_len=2),
+    )
+    list_req = _sched_req(
+        input_embeds_are_projected=False,
+        prefill_input_embeds=None,
+        req=SimpleNamespace(
+            input_embeds=torch.randn(2, 8).tolist(),
+            prefix_indices=[],
+            extend_input_len=2,
+        ),
+    )
+    forward_batch = SimpleNamespace(
+        input_embeds=torch.randn(2, 8),
+        input_ids=torch.zeros(4, dtype=torch.long),
+    )
+
+    runner = object.__new__(QwenTalkerModelRunner)
+
+    with pytest.raises(RuntimeError, match="cannot be batched together"):
+        runner._run_projected_prefill_forward(
+            forward_batch, schedule_batch=None, requests=[projected_req, list_req]
+        )
+
+
 def test_projected_prefill_full_prefix_hit_returns_none() -> None:
     """Full prefix hit produces no embeds, method returns None."""
     embeds = torch.randn(5, 64)

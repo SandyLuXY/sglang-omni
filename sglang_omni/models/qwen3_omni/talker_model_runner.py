@@ -166,12 +166,19 @@ class QwenTalkerModelRunner(ModelRunner):
         if not has_projected:
             return None
 
-        input_embeds = forward_batch.input_embeds
         projected_flags = [
             bool(req.data.input_embeds_are_projected) for req in requests
         ]
-        input_embeds_are_projected = bool(projected_flags) and all(projected_flags)
-        if input_embeds is None:
+        has_projected_requests = any(projected_flags)
+        if has_projected_requests and not all(projected_flags):
+            raise RuntimeError(
+                "Talker projected and unprojected prefill requests cannot be "
+                "batched together"
+            )
+
+        input_embeds_are_projected = has_projected_requests
+        input_embeds = forward_batch.input_embeds
+        if has_projected_requests:
             parts: list[torch.Tensor] = []
             for sched_req in requests:
                 req = sched_req.data.req
@@ -188,6 +195,8 @@ class QwenTalkerModelRunner(ModelRunner):
             if not parts:
                 return None
             input_embeds = torch.cat(parts, dim=0)
+        elif input_embeds is None:
+            return None
 
         expected_rows = int(forward_batch.input_ids.shape[0])
         if input_embeds.shape[0] != expected_rows:
@@ -402,7 +411,7 @@ class QwenTalkerModelRunner(ModelRunner):
 
     @staticmethod
     def _append_decode_input_history(data: Any, row: torch.Tensor) -> None:
-        QwenTalkerModelRunner._decode_input_history(data).append(row.detach().clone())
+        QwenTalkerModelRunner._decode_input_history(data).append(row.detach())
 
     @staticmethod
     def _decode_row(
