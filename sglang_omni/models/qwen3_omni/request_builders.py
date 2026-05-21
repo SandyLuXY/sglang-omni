@@ -553,6 +553,7 @@ def build_sglang_talker_request(
         vocab_size=codec_vocab_size,
     )
     req.tokenizer = tokenizer
+    req._input_embeds_are_projected = bool(input_embeds_are_projected)
     req.omni_model_inputs = dict(talker_model_inputs or {})
     req._omni_consumed = None
     req._codec_suppress_tokens = (

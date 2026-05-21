@@ -393,6 +393,7 @@ class TestBuildTalkerRequestTensorStorage:
 
         assert data.prefill_input_embeds is embeds
         assert data.req.input_embeds is None
+        assert data.req._input_embeds_are_projected is True
         assert data.input_embeds_are_projected is True
 
     def test_hidden_states_path(self) -> None:
@@ -408,6 +409,7 @@ class TestBuildTalkerRequestTensorStorage:
         assert data.prefill_input_embeds is None
         assert isinstance(data.req.input_embeds, list)
         assert len(data.req.input_embeds) == seq_len
+        assert data.req._input_embeds_are_projected is False
 
 
 def test_projected_prefill_reads_tensor_from_data() -> None:
