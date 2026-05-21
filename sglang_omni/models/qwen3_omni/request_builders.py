@@ -493,10 +493,9 @@ def build_sglang_talker_request(
 ) -> "SGLangARRequestData":
     """Build SGLang AR request for the Talker from thinker hidden states.
 
-    Keeps embedding tensors GPU-resident on SGLangARRequestData.prefill_input_embeds
-    so the model runner can read them directly without a list round-trip.
-    Uses dummy input_ids of matching length for position tracking, while the
-    request data keeps a device-backed FIFO of future text rows for decode.
+    Populates Req.input_embeds (list-of-lists) to honour the upstream contract,
+    and also stores the original tensor on SGLangARRequestData.prefill_input_embeds
+    so the model runner can skip the list→tensor reconversion.
 
     Args:
         thinker_hidden_states: Embed layer hidden states [seq_len, hidden_size].
@@ -538,7 +537,7 @@ def build_sglang_talker_request(
         origin_input_text="",
         origin_input_ids=input_ids_list,
         sampling_params=sampling_params,
-        input_embeds=None,
+        input_embeds=prefill_embeds_tensor.cpu().tolist(),
         eos_token_ids={int(codec_eos_id)} if codec_eos_id is not None else None,
         vocab_size=codec_vocab_size,
     )
