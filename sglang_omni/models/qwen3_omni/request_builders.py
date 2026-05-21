@@ -547,8 +547,7 @@ def build_sglang_talker_request(
         sampling_params=sampling_params,
         # Convert hidden states to list-of-lists for Req.input_embeds
         input_embeds=(
-            None if input_embeds_are_projected
-            else prefill_embeds_tensor.cpu().tolist()
+            None if input_embeds_are_projected else prefill_embeds_tensor.cpu().tolist()
         ),
         eos_token_ids={int(codec_eos_id)} if codec_eos_id is not None else None,
         vocab_size=codec_vocab_size,
@@ -597,7 +596,9 @@ def build_sglang_talker_request(
         temperature=temperature,
         output_ids=req.output_ids,
         req=req,
-        prefill_input_embeds=prefill_embeds_tensor if input_embeds_are_projected else None,
+        prefill_input_embeds=(
+            prefill_embeds_tensor if input_embeds_are_projected else None
+        ),
     )
     data.suppress_tokens = list(req._codec_suppress_tokens or [])
     data.talker_model_inputs = dict(talker_model_inputs or {})
