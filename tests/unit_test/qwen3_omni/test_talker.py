@@ -360,6 +360,7 @@ def test_qwen_model_runner_and_code_predictor_tensor_contracts() -> None:
     assert sampled.shape == (2, 1)
     assert sampled[:, 0].tolist() == [2, 0]
 
+
 @pytest.fixture()
 def _patch_sampling(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
@@ -457,6 +458,7 @@ def test_post_prefill_clears_prefill_embeds() -> None:
         requests=[sched_req],
     )
     assert sched_req.data.prefill_input_embeds is None
+
 
 @pytest.mark.benchmark
 @pytest.mark.usefixtures("_patch_sampling")

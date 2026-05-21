@@ -185,11 +185,13 @@ class QwenTalkerModelRunner(ModelRunner):
                         prefix_len = len(req.prefix_indices)
                         list_rows = embeds[prefix_len:]
                         if list_rows:
-                            parts.append(torch.as_tensor(
-                                list_rows,
-                                device=forward_batch.input_ids.device,
-                                dtype=torch.float32,
-                            ))
+                            parts.append(
+                                torch.as_tensor(
+                                    list_rows,
+                                    device=forward_batch.input_ids.device,
+                                    dtype=torch.float32,
+                                )
+                            )
             if not parts:
                 return None
             input_embeds = torch.cat(parts, dim=0)
