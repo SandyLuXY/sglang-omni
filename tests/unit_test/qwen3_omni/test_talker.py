@@ -641,6 +641,88 @@ def test_projected_prefill_survives_decode_retract() -> None:
     assert torch.equal(second._embeds, full_embeds)
 
 
+def test_write_feedback_buffers_records_decode_input_history() -> None:
+    """Decode inputs consumed by the feedback buffer are replayable after retract."""
+    feedback_buffer = torch.zeros(1, 2)
+    feedback_mask = torch.zeros(1, dtype=torch.bool)
+    sched_req = _sched_req(
+        pending_feedback_queue=deque([torch.tensor([1.0, 2.0])]),
+        pending_text_queue=deque([torch.tensor([20.0, 30.0])]),
+        decode_input_embeds=[],
+    )
+
+    runner = object.__new__(QwenTalkerModelRunner)
+    runner.model = SimpleNamespace(
+        _feedback_buffer=feedback_buffer,
+        _feedback_mask=feedback_mask,
+    )
+
+    runner._write_feedback_buffers([sched_req])
+
+    assert feedback_mask.tolist() == [True]
+    assert torch.equal(feedback_buffer[0], torch.tensor([21.0, 32.0]))
+    assert len(sched_req.data.decode_input_embeds) == 1
+    assert torch.equal(
+        sched_req.data.decode_input_embeds[0],
+        torch.tensor([21.0, 32.0]),
+    )
+
+
+def test_projected_prefill_retract_replays_generated_decode_inputs() -> None:
+    """Retracted prefill can span prompt suffix and generated codec tokens."""
+    full_embeds = torch.arange(20, dtype=torch.float32).reshape(10, 2)
+    decode_history = [
+        torch.tensor([100.0, 101.0]),
+        torch.tensor([200.0, 201.0]),
+    ]
+    sched_req = _sched_req(
+        input_embeds_are_projected=True,
+        prefill_input_embeds=full_embeds,
+        decode_input_embeds=decode_history,
+        pending_feedback_queue=deque([torch.tensor([3.0, 4.0])]),
+        pending_text_queue=deque([torch.tensor([30.0, 40.0])]),
+        req=SimpleNamespace(
+            input_embeds=None,
+            prefix_indices=list(range(8)),
+            extend_input_len=5,
+            output_ids=[11, 12, 13],
+        ),
+    )
+    forward_batch = SimpleNamespace(
+        input_embeds=None,
+        input_ids=torch.zeros(5, dtype=torch.long),
+    )
+
+    runner = object.__new__(QwenTalkerModelRunner)
+    runner._forward_with_input_embeds = (
+        lambda self, fb, *, input_embeds, **kw: SimpleNamespace(
+            next_token_ids=None, logits_output=None, _embeds=input_embeds
+        )
+    ).__get__(runner)
+
+    result = runner._run_projected_prefill_forward(
+        forward_batch, schedule_batch=None, requests=[sched_req]
+    )
+
+    expected = torch.cat(
+        [
+            full_embeds[8:10],
+            torch.stack(
+                [
+                    torch.tensor([100.0, 101.0]),
+                    torch.tensor([200.0, 201.0]),
+                    torch.tensor([33.0, 44.0]),
+                ]
+            ),
+        ],
+        dim=0,
+    )
+    assert torch.equal(result._embeds, expected)
+    assert len(sched_req.data.decode_input_embeds) == 3
+    assert len(sched_req.data.pending_feedback_queue) == 0
+    assert len(sched_req.data.pending_text_queue) == 0
+
+
 @pytest.mark.benchmark
 @pytest.mark.usefixtures("_patch_sampling")
 @pytest.mark.parametrize("seq_len", [256, 2048, 4096])
