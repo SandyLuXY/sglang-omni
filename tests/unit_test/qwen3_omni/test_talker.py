@@ -416,7 +416,7 @@ def test_projected_prefill_reads_tensor_from_data() -> None:
     sched_req = _sched_req(
         input_embeds_are_projected=True,
         prefill_input_embeds=embeds,
-        req=SimpleNamespace(input_embeds=None, prefix_indices=[]),
+        req=SimpleNamespace(input_embeds=None, prefix_indices=[], extend_input_len=10),
     )
     forward_batch = SimpleNamespace(
         input_embeds=None,
@@ -444,7 +444,11 @@ def test_projected_prefill_slices_tensor_by_prefix_indices() -> None:
     sched_req = _sched_req(
         input_embeds_are_projected=True,
         prefill_input_embeds=full_embeds,
-        req=SimpleNamespace(input_embeds=None, prefix_indices=list(range(prefix_len))),
+        req=SimpleNamespace(
+            input_embeds=None,
+            prefix_indices=list(range(prefix_len)),
+            extend_input_len=7,
+        ),
     )
     forward_batch = SimpleNamespace(
         input_embeds=None,
@@ -467,13 +471,85 @@ def test_projected_prefill_slices_tensor_by_prefix_indices() -> None:
     assert torch.equal(result._embeds, expected)
 
 
+def test_projected_prefill_slices_tensor_by_extend_input_len() -> None:
+    """Tensor path slices by prefix and extend length, matching SGLang prefill."""
+    full_embeds = torch.randn(10, 64)
+    prefix_len = 3
+    extend_len = 4
+    sched_req = _sched_req(
+        input_embeds_are_projected=True,
+        prefill_input_embeds=full_embeds,
+        req=SimpleNamespace(
+            input_embeds=None,
+            prefix_indices=list(range(prefix_len)),
+            extend_input_len=extend_len,
+        ),
+    )
+    forward_batch = SimpleNamespace(
+        input_embeds=None,
+        input_ids=torch.zeros(extend_len, dtype=torch.long),
+    )
+
+    runner = object.__new__(QwenTalkerModelRunner)
+    runner._forward_with_input_embeds = (
+        lambda self, fb, *, input_embeds, **kw: SimpleNamespace(
+            next_token_ids=None, logits_output=None, _embeds=input_embeds
+        )
+    ).__get__(runner)
+
+    result = runner._run_projected_prefill_forward(
+        forward_batch, schedule_batch=None, requests=[sched_req]
+    )
+
+    expected = full_embeds[prefix_len : prefix_len + extend_len]
+    assert result._embeds.shape == expected.shape
+    assert torch.equal(result._embeds, expected)
+
+
+def test_projected_prefill_list_fallback_slices_by_extend_input_len() -> None:
+    """List fallback keeps the same prefill slice contract as the tensor path."""
+    full_embeds = torch.randn(10, 64)
+    prefix_len = 2
+    extend_len = 5
+    sched_req = _sched_req(
+        input_embeds_are_projected=True,
+        prefill_input_embeds=None,
+        req=SimpleNamespace(
+            input_embeds=full_embeds.tolist(),
+            prefix_indices=list(range(prefix_len)),
+            extend_input_len=extend_len,
+        ),
+    )
+    forward_batch = SimpleNamespace(
+        input_embeds=None,
+        input_ids=torch.zeros(extend_len, dtype=torch.long),
+    )
+
+    runner = object.__new__(QwenTalkerModelRunner)
+    runner._forward_with_input_embeds = (
+        lambda self, fb, *, input_embeds, **kw: SimpleNamespace(
+            next_token_ids=None, logits_output=None, _embeds=input_embeds
+        )
+    ).__get__(runner)
+
+    result = runner._run_projected_prefill_forward(
+        forward_batch, schedule_batch=None, requests=[sched_req]
+    )
+
+    expected = full_embeds[prefix_len : prefix_len + extend_len]
+    assert result._embeds.shape == expected.shape
+    assert torch.allclose(result._embeds, expected)
+
+
 def test_projected_prefill_full_prefix_hit_returns_none() -> None:
     """Full prefix hit produces no embeds, method returns None."""
     embeds = torch.randn(5, 64)
     sched_req = _sched_req(
         input_embeds_are_projected=True,
         prefill_input_embeds=embeds,
-        req=SimpleNamespace(input_embeds=None, prefix_indices=list(range(5))),
+        req=SimpleNamespace(
+            input_embeds=None, prefix_indices=list(range(5)), extend_input_len=0
+        ),
     )
     forward_batch = SimpleNamespace(
         input_embeds=None,

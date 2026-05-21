@@ -175,19 +175,18 @@ class QwenTalkerModelRunner(ModelRunner):
         if input_embeds is None:
             parts: list[torch.Tensor] = []
             for sched_req in requests:
+                req = sched_req.data.req
+                prefix_len = len(req.prefix_indices)
+                extend_len = int(req.extend_input_len)
                 tensor = sched_req.data.prefill_input_embeds
                 if tensor is not None:
-                    prefix_len = len(sched_req.data.req.prefix_indices)
-                    if prefix_len > 0:
-                        tensor = tensor[prefix_len:]
+                    tensor = tensor[prefix_len : prefix_len + extend_len]
                     if tensor.shape[0] > 0:
                         parts.append(tensor)
                 else:
-                    req = sched_req.data.req
                     embeds = req.input_embeds
                     if embeds:
-                        prefix_len = len(req.prefix_indices)
-                        list_rows = embeds[prefix_len:]
+                        list_rows = embeds[prefix_len : prefix_len + extend_len]
                         if list_rows:
                             parts.append(
                                 torch.as_tensor(
