@@ -604,6 +604,9 @@ class OmniScheduler:
             )
             result = self._result_adapter(data)
 
+            data.prefill_input_embeds = None
+            data.decode_input_embeds = None
+
             self.outbox.put(
                 OutgoingMessage(
                     request_id=rid,
