@@ -3,8 +3,8 @@
 
 Note (Qiujiang, Chenyang):
 
-1. Voice-clone models (e.g. fishaudio/s2-pro): default uses ref_audio /
-  ref_text from the meta file.
+1. Voice-clone models (e.g. fishaudio/s2-pro, boson-sglang/higgs-audio-v3-tts-4b-base):
+  default uses ref_audio / ref_text from the meta file.
 2. Plain TTS (e.g. mistralai/Voxtral-4B-TTS-2603): use --no-ref-audio and
   --voice for a server-side speaker preset.
 
@@ -24,11 +24,23 @@ Usage:
         --model-path mistralai/Voxtral-4B-TTS-2603 \
         --port 8000
 
+    3. For Higgs-Audio-V3-TTS:
+    python -m sglang_omni.cli serve \
+        --model-path boson-sglang/higgs-audio-v3-tts-4b-base \
+        --config examples/configs/higgs_tts.yaml \
+        --port 8000
+
     # Full pipeline (generate + transcribe) — voice cloning
     python -m benchmarks.eval.benchmark_tts_seedtts \
         --meta zhaochenyang20/seed-tts-eval-arrow \
         --max-concurrency 16 \
         --model fishaudio/s2-pro --port 8000
+
+    # Full pipeline — voice cloning (Higgs)
+    python -m benchmarks.eval.benchmark_tts_seedtts \
+        --meta zhaochenyang20/seed-tts-eval-arrow \
+        --max-concurrency 16 \
+        --model boson-sglang/higgs-audio-v3-tts-4b-base --port 8000
 
     # Full pipeline — plain TTS (no ref audio from testset)
     python -m benchmarks.eval.benchmark_tts_seedtts \

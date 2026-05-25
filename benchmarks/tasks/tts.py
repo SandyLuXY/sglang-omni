@@ -635,15 +635,12 @@ class VoiceCloneTTS:
         temperature: float = 0.8,
         seed: int | None = None,
     ) -> tuple[bytes, float]:
-        payload: dict = {
-            "model": model_name,
-            "input": sample.target_text,
-            "ref_audio": sample.ref_audio,
-            "ref_text": sample.ref_text,
-            "response_format": "wav",
-            "max_new_tokens": max_new_tokens,
-            "temperature": temperature,
-        }
+        payload = _build_tts_payload(
+            sample,
+            model_name,
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+        )
         if seed is not None:
             payload["seed"] = seed
 
@@ -672,16 +669,13 @@ class VoiceCloneTTS:
         seed: int | None = None,
     ) -> tuple[bytes, float]:
         """Generate speech via streaming SSE, concatenate audio chunks into WAV."""
-        payload: dict = {
-            "model": model_name,
-            "input": sample.target_text,
-            "ref_audio": sample.ref_audio,
-            "ref_text": sample.ref_text,
-            "response_format": "wav",
-            "max_new_tokens": max_new_tokens,
-            "temperature": temperature,
-            "stream": True,
-        }
+        payload = _build_tts_payload(
+            sample,
+            model_name,
+            stream=True,
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+        )
         if seed is not None:
             payload["seed"] = seed
 
@@ -984,6 +978,10 @@ class VoiceCloneOmni:
 # ---------------------------------------------------------------------------
 
 
+def _uses_references_format(model_name: str) -> bool:
+    return "higgs" in model_name.lower()
+
+
 def _build_tts_payload(
     sample: SampleInput,
     model_name: str,
@@ -999,8 +997,13 @@ def _build_tts_payload(
         "response_format": "wav",
     }
     if not no_ref_audio:
-        payload["ref_audio"] = sample.ref_audio
-        payload["ref_text"] = sample.ref_text
+        if _uses_references_format(model_name):
+            payload["references"] = [
+                {"audio_path": sample.ref_audio, "text": sample.ref_text}
+            ]
+        else:
+            payload["ref_audio"] = sample.ref_audio
+            payload["ref_text"] = sample.ref_text
     if voice is not None:
         payload["voice"] = voice
     for key, value in gen_kwargs.items():
