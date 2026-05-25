@@ -199,5 +199,29 @@ class HiggsAudioCodec:
         )
         return self.model.decode(codes_BNT).audio_values.squeeze(0).squeeze(0).cpu()
 
+    @torch.no_grad()
+    def decode_batch(self, codes_list: list[torch.Tensor]) -> list[torch.Tensor]:
+        """Batch-decode variable-length ``[T_i, N]`` tensors into ``[L_i]`` waveforms."""
+        if not codes_list:
+            return []
+        if len(codes_list) == 1:
+            return [self.decode(codes_list[0])]
+
+        lengths = [c.shape[0] for c in codes_list]
+        T_max = max(lengths)
+        padded = torch.stack(
+            [F.pad(c, (0, 0, 0, T_max - c.shape[0])) for c in codes_list]
+        )
+        codes_BNT = padded.transpose(1, 2).to(device=self.device, dtype=torch.long)
+        audio = self.model.decode(codes_BNT).audio_values
+
+        # Output length is affine in T (ConvTranspose1d composition):
+        # L = hop * T + offset.  Derive offset from the (T_max, L_max) pair.
+        L_max = audio.shape[-1]
+        hop = self.model.config.hop_length
+        offset = L_max - hop * T_max
+
+        return [audio[i, 0, : hop * t + offset].cpu() for i, t in enumerate(lengths)]
+
 
 __all__ = ["HiggsAudioCodec"]
