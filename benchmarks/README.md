@@ -30,7 +30,12 @@ python -m sglang_omni.cli serve \
     --model-path fishaudio/s2-pro \
     --config examples/configs/s2pro_tts.yaml --port 8000
 
-# Voxtral-4B-TTS — for section 2d (plain TTS, no voice cloning)
+# Higgs-Audio-V3-TTS — for section 2d (voice cloning)
+python -m sglang_omni.cli serve \
+    --model-path boson-sglang/higgs-audio-v3-tts-4b-base \
+    --config examples/configs/higgs_tts.yaml --port 8000
+
+# Voxtral-4B-TTS — for section 2e (plain TTS, no voice cloning)
 python -m sglang_omni.cli serve \
     --model-path mistralai/Voxtral-4B-TTS-2603 --port 8000
 
@@ -61,7 +66,13 @@ python -m benchmarks.eval.benchmark_tts_seedtts \
     --model fishaudio/s2-pro \
     --output-dir results/s2pro_en --lang en --device cuda:0
 
-# 2d. Voxtral — full pipeline without voice cloning
+# 2d. Higgs — full pipeline with voice cloning
+python -m benchmarks.eval.benchmark_tts_seedtts \
+    --meta zhaochenyang20/seed-tts-eval-arrow \
+    --model boson-sglang/higgs-audio-v3-tts-4b-base --port 8000 \
+    --output-dir results/higgs_en --lang en --max-samples 50 --concurrency 8
+
+# 2e. Voxtral — full pipeline without voice cloning
 python -m benchmarks.eval.benchmark_tts_seedtts \
     --meta zhaochenyang20/seed-tts-eval-arrow \
     --model mistralai/Voxtral-4B-TTS-2603 --port 8000 \
@@ -124,7 +135,7 @@ python -m benchmarks.eval.benchmark_omni_videoamme \
 
 | Script | Task | Model | API |
 |--------|------|-------|-----|
-| `eval/benchmark_tts_seedtts.py` | TTS speed + WER (unified) | e.g. S2-Pro, Voxtral | `/v1/audio/speech` |
+| `eval/benchmark_tts_seedtts.py` | TTS speed + WER (unified) | e.g. S2-Pro, Higgs, Voxtral | `/v1/audio/speech` |
 | `eval/benchmark_omni_seedtts.py` | TTS speed + WER (unified) | Qwen3-Omni | `/v1/chat/completions` |
 | `eval/benchmark_omni_mmsu.py` | MMSU (audio comprehension) | Qwen3-Omni | `/v1/chat/completions` |
 | `eval/benchmark_omni_mmmu.py` | MMMU (VLM accuracy + speed) | Qwen3-Omni | `/v1/chat/completions` |
