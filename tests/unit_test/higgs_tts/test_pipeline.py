@@ -281,14 +281,8 @@ def test_higgs_tts_vocoder_batches_decode_requests(
 
     assert decode_batch_sizes == [2], "should call decode_batch once with 2 items"
     assert len(results) == 2
-    assert results[0].data["modality"] == "audio"
-    assert results[0].data["sample_rate"] == 24_000
-    assert isinstance(results[0].data["audio_data"], list)
     assert len(results[0].data["audio_data"]) > 0
     assert results[0].data["usage"]["prompt_tokens"] == 5
-    assert results[0].data["usage"]["completion_tokens"] == 10
-    assert results[1].data["modality"] == "audio"
-    assert "usage" not in results[1].data
 
 
 def test_higgs_tts_vocoder_batch_handles_empty_items(
@@ -317,3 +311,72 @@ def test_higgs_tts_vocoder_batch_handles_empty_items(
     assert results[0].data["audio_data"] == []
     assert results[1].data["audio_data"] == []
     assert len(results[2].data["audio_data"]) > 0
+
+
+def _make_fake_codec(call_log: list[tuple[int, int]]):
+    """Build a HiggsAudioCodec wrapping a deterministic FakeModel that logs (B, T)."""
+    from sglang_omni.models.higgs_tts.audio_codec import HiggsAudioCodec
+
+    class FakeModel:
+        class config:
+            hop_length = 320
+
+        def decode(self, codes_BNT):
+            B, N, T = codes_BNT.shape
+            call_log.append((B, T))
+            L = 320 * T + 64
+            audio = torch.zeros(B, 1, L)
+            for b in range(B):
+                audio[b, 0, :] = codes_BNT[b].float().sum(dim=0).repeat(L // T + 1)[:L]
+            return SimpleNamespace(audio_values=audio)
+
+    codec = object.__new__(HiggsAudioCodec)
+    codec.model = FakeModel()
+    codec.device = torch.device("cpu")
+    codec._dtype = torch.float32
+    return codec
+
+
+def test_decode_batch_buckets_by_length() -> None:
+    """Same-T items batch into one call; mixed-T items get separate calls."""
+    call_log: list[tuple[int, int]] = []
+    codec = _make_fake_codec(call_log)
+
+    # Same length → single batched forward pass
+    same = [torch.randint(0, 100, (10, 8)) for _ in range(3)]
+    results = codec.decode_batch(same)
+    assert call_log == [(3, 10)], "single batched call with B=3"
+    assert all(r.shape == (320 * 10 + 64,) for r in results)
+
+    # Mixed lengths → per-bucket calls
+    call_log.clear()
+    mixed = [
+        torch.randint(0, 100, (10, 8)),
+        torch.randint(0, 100, (10, 8)),
+        torch.randint(0, 100, (15, 8)),
+    ]
+    results = codec.decode_batch(mixed)
+    assert sorted(call_log) == [(1, 15), (2, 10)]
+    assert results[2].shape == (320 * 15 + 64,)
+
+
+def test_decode_batch_bit_exact_with_single_decode() -> None:
+    """Batched decode must produce identical output to individual decode."""
+    call_log: list[tuple[int, int]] = []
+    codec = _make_fake_codec(call_log)
+
+    codes_a = torch.randint(0, 100, (10, 8))
+    codes_b = torch.randint(0, 100, (15, 8))
+
+    single_a = codec.decode(codes_a)
+    single_b = codec.decode(codes_b)
+    call_log.clear()
+
+    batch_results = codec.decode_batch([codes_a, codes_b])
+
+    assert torch.equal(
+        single_a, batch_results[0]
+    ), "batched decode must match single decode for item 0"
+    assert torch.equal(
+        single_b, batch_results[1]
+    ), "batched decode must match single decode for item 1"

@@ -370,8 +370,8 @@ def create_vocoder_executor(
             for idx, wav in zip(indices, wavs):
                 waveforms[idx] = wav
         return [
-            _store_vocoder_result(p, state, waveforms[i])
-            for i, (p, (state, _)) in enumerate(zip(payloads, items))
+            _store_vocoder_result(payload, state, wav)
+            for payload, (state, _), wav in zip(payloads, items, waveforms)
         ]
 
     return SimpleScheduler(
