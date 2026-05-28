@@ -367,6 +367,11 @@ def create_vocoder_executor(
         if valid:
             indices, codes_list = zip(*valid)
             wavs = codec.decode_batch(list(codes_list))
+            if len(wavs) != len(valid):
+                raise RuntimeError(
+                    f"Higgs vocoder decode_batch returned {len(wavs)} audios "
+                    f"for {len(valid)} requests"
+                )
             for idx, wav in zip(indices, wavs):
                 waveforms[idx] = wav
         return [

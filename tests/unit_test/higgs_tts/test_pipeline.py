@@ -366,7 +366,7 @@ def test_decode_batch_bit_exact_with_single_decode() -> None:
     codec = _make_fake_codec(call_log)
 
     codes_a = torch.randint(0, 100, (10, 8))
-    codes_b = torch.randint(0, 100, (15, 8))
+    codes_b = torch.randint(0, 100, (10, 8))
 
     single_a = codec.decode(codes_a)
     single_b = codec.decode(codes_b)
@@ -374,9 +374,6 @@ def test_decode_batch_bit_exact_with_single_decode() -> None:
 
     batch_results = codec.decode_batch([codes_a, codes_b])
 
-    assert torch.equal(
-        single_a, batch_results[0]
-    ), "batched decode must match single decode for item 0"
-    assert torch.equal(
-        single_b, batch_results[1]
-    ), "batched decode must match single decode for item 1"
+    assert call_log == [(2, 10)]
+    assert torch.equal(single_a, batch_results[0])
+    assert torch.equal(single_b, batch_results[1])

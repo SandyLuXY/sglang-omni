@@ -229,7 +229,12 @@ class HiggsAudioCodec:
                 for j, idx in enumerate(indices):
                     results[idx] = audio[j, 0]
 
-        return results  # type: ignore[return-value]
+        out: list[torch.Tensor] = []
+        for i, result in enumerate(results):
+            if result is None:
+                raise RuntimeError(f"decode_batch did not produce audio for item {i}")
+            out.append(result)
+        return out
 
 
 __all__ = ["HiggsAudioCodec"]
