@@ -225,9 +225,9 @@ class HiggsAudioCodec:
                 codes_BNT = stacked.transpose(1, 2).to(
                     device=self.device, dtype=torch.long
                 )
-                audio = self.model.decode(codes_BNT).audio_values
+                audio = self.model.decode(codes_BNT).audio_values.cpu()
                 for j, idx in enumerate(indices):
-                    results[idx] = audio[j, 0].cpu()
+                    results[idx] = audio[j, 0]
 
         return results  # type: ignore[return-value]
 
