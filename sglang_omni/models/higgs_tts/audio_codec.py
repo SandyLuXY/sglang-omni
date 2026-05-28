@@ -216,12 +216,6 @@ class HiggsAudioCodec:
         for i, c in enumerate(codes_list):
             buckets.setdefault(c.shape[0], []).append(i)
 
-        if len(buckets) == 1:
-            stacked = torch.stack(codes_list)
-            codes_BNT = stacked.transpose(1, 2).to(device=self.device, dtype=torch.long)
-            audio = self.model.decode(codes_BNT).audio_values
-            return [audio[i, 0].cpu() for i in range(len(codes_list))]
-
         results: list[torch.Tensor | None] = [None] * len(codes_list)
         for indices in buckets.values():
             if len(indices) == 1:
