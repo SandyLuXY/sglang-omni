@@ -1031,7 +1031,8 @@ class FishQwen3AudioDecoder(PreTrainedModel):
         # cache_seqlens: current position in cache for each batch item
         cache_seqlens = self.input_pos.expand(bsz).to(torch.int32)
 
-        for layer in self.layers:
+        layers = getattr(self, "_compiled_layers", self.layers)
+        for layer in layers:
             x = layer.forward_kvcached(x, freqs_cis, cache_seqlens)
 
         x = self.norm(x)

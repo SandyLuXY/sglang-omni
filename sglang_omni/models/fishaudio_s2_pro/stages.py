@@ -21,6 +21,27 @@ from sglang_omni.proto import StagePayload
 logger = logging.getLogger(__name__)
 
 
+def _compile_s2pro_codebook_decoder(model: Any) -> None:
+    """Compile Fast AR decoder layers while leaving sampling and loop control eager."""
+    from sglang.srt.model_executor.cuda_graph_runner import set_torch_compile_config
+
+    set_torch_compile_config()
+    compile_mode = os.environ.get(
+        "SGLANG_TORCH_COMPILE_MODE",
+        "max-autotune-no-cudagraphs",
+    )
+    audio_decoder = model._audio_decoder
+    audio_decoder._compiled_layers = [
+        torch.compile(layer, mode=compile_mode, fullgraph=True)
+        for layer in audio_decoder.layers
+    ]
+    logger.info(
+        "Compiled %d Fast AR decoder layers (mode=%s)",
+        len(audio_decoder._compiled_layers),
+        compile_mode,
+    )
+
+
 def _resolve_checkpoint(checkpoint: str) -> str:
     if os.path.isdir(checkpoint):
         return checkpoint
@@ -239,6 +260,10 @@ def create_sglang_tts_engine_executor(
         codebook_size=codebook_size,
         ras_window=ras_window,
     )
+
+    if bool(getattr(server_args, "enable_torch_compile", False)):
+        _compile_s2pro_codebook_decoder(model_worker.model_runner.model)
+        server_args.enable_torch_compile = False
 
     if want_cuda_graph:
         model_worker.model_runner.init_device_graphs()
