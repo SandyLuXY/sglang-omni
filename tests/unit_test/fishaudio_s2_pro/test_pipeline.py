@@ -243,7 +243,7 @@ def test_s2pro_compile_helper_targets_forward_kvcached(
         compile_calls.append((target, mode, kwargs))
         return f"compiled-{len(compile_calls)}"
 
-    monkeypatch.setattr(stages.torch, "compile", fake_compile)
+    monkeypatch.setattr(torch, "compile", fake_compile)
     monkeypatch.setenv("SGLANG_TORCH_COMPILE_MODE", "reduce-overhead")
 
     class _Layer:
@@ -253,18 +253,29 @@ def test_s2pro_compile_helper_targets_forward_kvcached(
             del freqs_cis, cache_seqlens
             return x
 
-    layers = [_Layer()]
-    model = SimpleNamespace(_audio_decoder=SimpleNamespace(layers=layers))
+    class _AudioDecoder:
+        def __init__(self) -> None:
+            self.layers = [_Layer()]
+
+        def compile_forward_kvcached_layers(self, *, mode: str) -> int:
+            self._forward_kvcached_layers = [
+                torch.compile(layer.forward_kvcached, mode=mode)
+                for layer in self.layers
+            ]
+            return len(self._forward_kvcached_layers)
+
+    audio_decoder = _AudioDecoder()
+    model = SimpleNamespace(_audio_decoder=audio_decoder)
 
     stages._compile_s2pro_codebook_decoder(model)
 
     assert len(compile_calls) == 1
     target, mode, kwargs = compile_calls[0]
-    assert getattr(target, "__self__", None) is layers[0]
+    assert getattr(target, "__self__", None) is audio_decoder.layers[0]
     assert getattr(target, "__name__", "") == "forward_kvcached"
     assert mode == "reduce-overhead"
     assert kwargs == {}
-    assert model._audio_decoder._compiled_kvcached_layers == ["compiled-1"]
+    assert audio_decoder._forward_kvcached_layers == ["compiled-1"]
 
 
 def test_decoder_forward_kvcached_uses_compiled_callables_when_present() -> None:
@@ -302,8 +313,7 @@ def test_decoder_forward_kvcached_uses_compiled_callables_when_present() -> None
         seen_calls.append("b")
         return x + 3
 
-    decoder._compiled_kvcached_layers = [compiled_a, compiled_b]
-    decoder._compiled_layers = [object()]
+    decoder._forward_kvcached_layers = [compiled_a, compiled_b]
 
     x = torch.ones((2, 1, 4), dtype=torch.float32)
     out = FishQwen3AudioDecoder.forward_kvcached(decoder, x=x, codebook_idx=2)

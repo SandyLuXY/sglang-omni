@@ -31,13 +31,12 @@ def _compile_s2pro_codebook_decoder(model: Any) -> None:
         "max-autotune-no-cudagraphs",
     )
     audio_decoder = model._audio_decoder
-    audio_decoder._compiled_kvcached_layers = [
-        torch.compile(layer.forward_kvcached, mode=compile_mode)
-        for layer in audio_decoder.layers
-    ]
+    compiled_layer_count = audio_decoder.compile_forward_kvcached_layers(
+        mode=compile_mode
+    )
     logger.info(
         "Compiled %d Fast AR decoder layers (mode=%s)",
-        len(audio_decoder._compiled_kvcached_layers),
+        compiled_layer_count,
         compile_mode,
     )
 
@@ -211,6 +210,8 @@ def create_sglang_tts_engine_executor(
         "max_running_requests": 64,
         "chunked_prefill_size": 8192,
         "dtype": "bfloat16",
+        "enable_torch_compile": True,
+        "torch_compile_max_bs": 16,
         "random_seed": int.from_bytes(os.urandom(4), "little") & 0x7FFFFFFF,
     }
     if server_args_overrides:
