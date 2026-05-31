@@ -21,9 +21,12 @@ from sglang_omni.proto import StagePayload
 logger = logging.getLogger(__name__)
 
 
-def _compile_s2pro_codebook_decoder(model: Any) -> None:
+def _compile_s2pro_codebook_decoder(model: Any, *, max_batch_size: int) -> None:
     """Compile Fast AR decoder layers while leaving sampling and loop control eager."""
     from sglang.srt.model_executor.cuda_graph_runner import set_torch_compile_config
+
+    if max_batch_size < 1:
+        raise ValueError("max_batch_size must be >= 1")
 
     set_torch_compile_config()
     compile_mode = os.environ.get(
@@ -35,11 +38,15 @@ def _compile_s2pro_codebook_decoder(model: Any) -> None:
         torch.compile(layer.forward_kvcached, mode=compile_mode)
         for layer in audio_decoder.layers
     ]
-    audio_decoder.set_forward_kvcached_layers(compiled_forward_kvcached_layers)
+    audio_decoder.set_compiled_forward_kvcached_layers(
+        compiled_forward_kvcached_layers,
+        max_batch_size=max_batch_size,
+    )
     logger.info(
-        "Compiled %d Fast AR decoder layers (mode=%s)",
+        "Compiled %d Fast AR decoder layers (mode=%s, max_batch_size=%d)",
         len(compiled_forward_kvcached_layers),
         compile_mode,
+        max_batch_size,
     )
 
 
@@ -265,7 +272,10 @@ def create_sglang_tts_engine_executor(
     )
 
     if bool(getattr(server_args, "enable_torch_compile", False)):
-        _compile_s2pro_codebook_decoder(model_worker.model_runner.model)
+        _compile_s2pro_codebook_decoder(
+            model_worker.model_runner.model,
+            max_batch_size=server_args.torch_compile_max_bs,
+        )
         server_args.enable_torch_compile = False
 
     if want_cuda_graph:

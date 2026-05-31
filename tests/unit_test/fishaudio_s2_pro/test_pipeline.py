@@ -257,15 +257,19 @@ def test_s2pro_compile_helper_targets_forward_kvcached(
         def __init__(self) -> None:
             self.layers = [_Layer()]
 
-        def set_forward_kvcached_layers(
-            self, forward_kvcached_layers: list[object]
+        def set_compiled_forward_kvcached_layers(
+            self,
+            forward_kvcached_layers: list[object],
+            *,
+            max_batch_size: int,
         ) -> None:
-            self._forward_kvcached_layers = forward_kvcached_layers
+            self._compiled_forward_kvcached_layers = forward_kvcached_layers
+            self._compiled_forward_kvcached_max_bs = max_batch_size
 
     audio_decoder = _AudioDecoder()
     model = SimpleNamespace(_audio_decoder=audio_decoder)
 
-    stages._compile_s2pro_codebook_decoder(model)
+    stages._compile_s2pro_codebook_decoder(model, max_batch_size=2)
 
     assert len(compile_calls) == 1
     target, mode, kwargs = compile_calls[0]
@@ -273,10 +277,150 @@ def test_s2pro_compile_helper_targets_forward_kvcached(
     assert getattr(target, "__name__", "") == "forward_kvcached"
     assert mode == "reduce-overhead"
     assert kwargs == {}
-    assert audio_decoder._forward_kvcached_layers == ["compiled-1"]
+    assert audio_decoder._compiled_forward_kvcached_layers == ["compiled-1"]
+    assert audio_decoder._compiled_forward_kvcached_max_bs == 2
 
 
-def test_decoder_forward_kvcached_uses_compiled_callables_when_present() -> None:
+def test_s2pro_engine_disables_generic_compile_after_local_compile(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stages = importlib.import_module("sglang_omni.models.fishaudio_s2_pro.stages")
+    monkeypatch.setattr(stages, "_resolve_checkpoint", lambda model_path: model_path)
+
+    build_kwargs: dict[str, object] = {}
+    infrastructure_saw_graph_disabled: list[bool] = []
+    compile_calls: list[tuple[object, int]] = []
+    init_graph_calls: list[bool] = []
+
+    class _FakeSGLangRunner:
+        def __init__(self, server_args: SimpleNamespace) -> None:
+            self.server_args = server_args
+            self.model = SimpleNamespace()
+
+        def init_device_graphs(self) -> None:
+            assert self.server_args.enable_torch_compile is False
+            assert self.server_args.torch_compile_max_bs == 16
+            init_graph_calls.append(True)
+
+    class _FakeWorker:
+        def __init__(self, server_args: SimpleNamespace) -> None:
+            self.model_runner = _FakeSGLangRunner(server_args)
+
+    fake_bootstrap = ModuleType("sglang_omni.models.fishaudio_s2_pro.bootstrap")
+    fake_bootstrap.patch_fish_config_for_sglang = lambda: None
+    fake_bootstrap.truncate_rope_to_bf16 = lambda model: None
+    fake_bootstrap.load_audio_decoder = lambda checkpoint_dir, device: (
+        SimpleNamespace(),
+        10,
+        4096,
+        FakeFishTokenizer(),
+    )
+    fake_bootstrap.bootstrap_text_model_for_decode = lambda **kwargs: None
+
+    def fake_build_sglang_server_args(
+        model_path: str,
+        context_length: int,
+        **kwargs: object,
+    ) -> SimpleNamespace:
+        del model_path, context_length
+        build_kwargs.update(kwargs)
+        return SimpleNamespace(
+            disable_cuda_graph=kwargs["disable_cuda_graph"],
+            enable_torch_compile=kwargs["enable_torch_compile"],
+            torch_compile_max_bs=kwargs["torch_compile_max_bs"],
+            max_running_requests=kwargs["max_running_requests"],
+            page_size=1,
+            chunked_prefill_size=kwargs["chunked_prefill_size"],
+            max_prefill_tokens=16384,
+            attention_backend=None,
+        )
+
+    def fake_create_sglang_infrastructure(
+        server_args: SimpleNamespace,
+        gpu_id: int,
+    ) -> tuple[object, object, object, object, object, object, object]:
+        assert gpu_id == 0
+        infrastructure_saw_graph_disabled.append(bool(server_args.disable_cuda_graph))
+        return (
+            _FakeWorker(server_args),
+            object(),
+            object(),
+            object(),
+            object(),
+            object(),
+            SimpleNamespace(),
+        )
+
+    fake_scheduler_bootstrap = ModuleType("sglang_omni.scheduling.bootstrap")
+    fake_scheduler_bootstrap.create_sglang_infrastructure = (
+        fake_create_sglang_infrastructure
+    )
+
+    fake_sglang_backend = ModuleType("sglang_omni.scheduling.sglang_backend")
+    fake_sglang_backend.build_sglang_server_args = fake_build_sglang_server_args
+    fake_sglang_backend.SGLangOutputProcessor = (
+        lambda **kwargs: SimpleNamespace(**kwargs)
+    )
+
+    fake_fish_scheduler = ModuleType(
+        "sglang_omni.models.fishaudio_s2_pro.fish_scheduler"
+    )
+
+    class _FakeFishScheduler:
+        def __init__(self, **kwargs: object) -> None:
+            self.__dict__.update(kwargs)
+
+    fake_fish_scheduler.FishScheduler = _FakeFishScheduler
+
+    fake_model_runner = ModuleType("sglang_omni.models.fishaudio_s2_pro.model_runner")
+    fake_model_runner.FishS2ProModelRunner = (
+        lambda *args, **kwargs: SimpleNamespace(args=args, kwargs=kwargs)
+    )
+
+    monkeypatch.setitem(
+        sys.modules,
+        "sglang_omni.models.fishaudio_s2_pro.bootstrap",
+        fake_bootstrap,
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "sglang_omni.scheduling.bootstrap",
+        fake_scheduler_bootstrap,
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "sglang_omni.scheduling.sglang_backend",
+        fake_sglang_backend,
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "sglang_omni.models.fishaudio_s2_pro.fish_scheduler",
+        fake_fish_scheduler,
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "sglang_omni.models.fishaudio_s2_pro.model_runner",
+        fake_model_runner,
+    )
+
+    def fake_compile(model: object, *, max_batch_size: int) -> None:
+        compile_calls.append((model, max_batch_size))
+
+    monkeypatch.setattr(stages, "_compile_s2pro_codebook_decoder", fake_compile)
+
+    scheduler = stages.create_sglang_tts_engine_executor("model", device="cuda:0")
+
+    assert build_kwargs["enable_torch_compile"] is True
+    assert build_kwargs["torch_compile_max_bs"] == 16
+    assert infrastructure_saw_graph_disabled == [True]
+    assert compile_calls == [(scheduler.model_runner.args[0].model_runner.model, 16)]
+    assert init_graph_calls == [True]
+    assert scheduler.server_args.disable_cuda_graph is False
+    assert scheduler.server_args.enable_torch_compile is False
+    assert scheduler.server_args.torch_compile_max_bs == 16
+
+
+def test_decoder_forward_kvcached_obeys_compiled_batch_size_cap() -> None:
     from sglang_omni.models.fishaudio_s2_pro.fish_speech.models.text2semantic.modeling import (
         FishQwen3AudioDecoder,
     )
@@ -285,36 +429,41 @@ def test_decoder_forward_kvcached_uses_compiled_callables_when_present() -> None
         def forward_kvcached(
             self, x: torch.Tensor, freqs_cis: torch.Tensor, cache_seqlens: torch.Tensor
         ) -> torch.Tensor:
-            del x, freqs_cis, cache_seqlens
-            raise AssertionError("eager layer path should be bypassed")
+            del freqs_cis, cache_seqlens
+            seen_calls.append("eager")
+            return x + 10
 
     decoder = object.__new__(FishQwen3AudioDecoder)
     decoder.input_pos = torch.zeros(1, dtype=torch.long)
     decoder.freqs_cis = torch.zeros(8, 1, 1, dtype=torch.float32)
-    decoder.layers = [_EagerLayer(), _EagerLayer()]
-    decoder.norm = lambda x: x + 1
-    decoder.output = lambda x: x * 2
+    decoder.layers = [_EagerLayer()]
+    decoder._eager_forward_kvcached_layers = [
+        layer.forward_kvcached for layer in decoder.layers
+    ]
+    decoder.norm = lambda x: x
+    decoder.output = lambda x: x
 
     seen_calls: list[str] = []
 
-    def compiled_a(
+    def compiled(
         x: torch.Tensor, freqs_cis: torch.Tensor, cache_seqlens: torch.Tensor
     ) -> torch.Tensor:
         del freqs_cis, cache_seqlens
-        seen_calls.append("a")
-        return x + 2
+        seen_calls.append("compiled")
+        return x + 1
 
-    def compiled_b(
-        x: torch.Tensor, freqs_cis: torch.Tensor, cache_seqlens: torch.Tensor
-    ) -> torch.Tensor:
-        del freqs_cis, cache_seqlens
-        seen_calls.append("b")
-        return x + 3
+    decoder._compiled_forward_kvcached_layers = [compiled]
+    decoder._compiled_forward_kvcached_max_bs = 2
 
-    decoder._forward_kvcached_layers = [compiled_a, compiled_b]
-
-    x = torch.ones((2, 1, 4), dtype=torch.float32)
+    x = torch.zeros((2, 1, 4), dtype=torch.float32)
     out = FishQwen3AudioDecoder.forward_kvcached(decoder, x=x, codebook_idx=2)
 
-    assert torch.equal(out, torch.full_like(x, 14.0))
-    assert seen_calls == ["a", "b"]
+    assert torch.equal(out, torch.ones_like(x))
+    assert seen_calls == ["compiled"]
+
+    seen_calls.clear()
+    x = torch.zeros((3, 1, 4), dtype=torch.float32)
+    out = FishQwen3AudioDecoder.forward_kvcached(decoder, x=x, codebook_idx=2)
+
+    assert torch.equal(out, torch.full_like(x, 10.0))
+    assert seen_calls == ["eager"]
