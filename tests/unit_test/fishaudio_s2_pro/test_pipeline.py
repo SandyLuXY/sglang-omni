@@ -2,9 +2,15 @@
 
 from __future__ import annotations
 
+import importlib
+import sys
+from types import ModuleType, SimpleNamespace
+
 import pytest
 import torch
+import typer
 
+from sglang_omni.cli.serve import apply_torch_compile_cli_overrides
 from sglang_omni.models.fishaudio_s2_pro.config import S2ProPipelineConfig
 from sglang_omni.models.fishaudio_s2_pro.payload_types import S2ProState
 from sglang_omni.models.fishaudio_s2_pro.request_builders import (
@@ -152,3 +158,155 @@ def test_fish_tts_accepts_default_top_k_sentinel() -> None:
     req_data = build_sglang_tts_request(state, tokenizer, request_id="top-k-default")
 
     assert req_data.top_k == -1
+
+
+def _server_args_overrides(config: S2ProPipelineConfig, name: str) -> dict[str, object]:
+    stage = next(stage for stage in config.stages if stage.name == name)
+    return dict(stage.factory_args.get("server_args_overrides") or {})
+
+
+@pytest.mark.parametrize(
+    "talker_mode,talker_max_bs,expected",
+    [
+        ("on", None, {"enable_torch_compile": True}),
+        ("off", None, {"enable_torch_compile": False}),
+        ("default", 2, {"torch_compile_max_bs": 2}),
+        ("on", 4, {"enable_torch_compile": True, "torch_compile_max_bs": 4}),
+    ],
+)
+def test_s2pro_cli_talker_torch_compile_targets_tts_engine(
+    talker_mode: str,
+    talker_max_bs: int | None,
+    expected: dict[str, object],
+) -> None:
+    config = S2ProPipelineConfig(model_path="model")
+
+    apply_torch_compile_cli_overrides(
+        config,
+        thinker_torch_compile="default",
+        talker_torch_compile=talker_mode,
+        thinker_torch_compile_max_bs=None,
+        talker_torch_compile_max_bs=talker_max_bs,
+    )
+
+    assert _server_args_overrides(config, "tts_engine") == expected
+    assert _server_args_overrides(config, "vocoder") == {}
+
+
+def test_s2pro_cli_talker_torch_compile_default_is_noop() -> None:
+    config = S2ProPipelineConfig(model_path="model")
+
+    apply_torch_compile_cli_overrides(
+        config,
+        thinker_torch_compile="default",
+        talker_torch_compile="default",
+        thinker_torch_compile_max_bs=None,
+        talker_torch_compile_max_bs=None,
+    )
+
+    assert _server_args_overrides(config, "tts_engine") == {}
+
+
+def test_s2pro_cli_talker_torch_compile_max_bs_rejects_non_positive() -> None:
+    config = S2ProPipelineConfig(model_path="model")
+
+    with pytest.raises(
+        typer.BadParameter,
+        match="torch compile max batch size must be >= 1",
+    ):
+        apply_torch_compile_cli_overrides(
+            config,
+            thinker_torch_compile="default",
+            talker_torch_compile="default",
+            thinker_torch_compile_max_bs=None,
+            talker_torch_compile_max_bs=0,
+        )
+
+
+def test_s2pro_compile_helper_targets_forward_kvcached(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("HOME", "/tmp")
+    stages = importlib.import_module("sglang_omni.models.fishaudio_s2_pro.stages")
+
+    fake_runner = ModuleType("sglang.srt.model_executor.cuda_graph_runner")
+    fake_runner.set_torch_compile_config = lambda: None
+    monkeypatch.setitem(
+        sys.modules, "sglang.srt.model_executor.cuda_graph_runner", fake_runner
+    )
+
+    compile_calls: list[tuple[object, str | None, dict[str, object]]] = []
+
+    def fake_compile(
+        target: object, *, mode: str | None = None, **kwargs: object
+    ) -> object:
+        compile_calls.append((target, mode, kwargs))
+        return f"compiled-{len(compile_calls)}"
+
+    monkeypatch.setattr(stages.torch, "compile", fake_compile)
+    monkeypatch.setenv("SGLANG_TORCH_COMPILE_MODE", "reduce-overhead")
+
+    class _Layer:
+        def forward_kvcached(
+            self, x: torch.Tensor, freqs_cis: torch.Tensor, cache_seqlens: torch.Tensor
+        ) -> torch.Tensor:
+            del freqs_cis, cache_seqlens
+            return x
+
+    layers = [_Layer()]
+    model = SimpleNamespace(_audio_decoder=SimpleNamespace(layers=layers))
+
+    stages._compile_s2pro_codebook_decoder(model)
+
+    assert len(compile_calls) == 1
+    target, mode, kwargs = compile_calls[0]
+    assert getattr(target, "__self__", None) is layers[0]
+    assert getattr(target, "__name__", "") == "forward_kvcached"
+    assert mode == "reduce-overhead"
+    assert kwargs == {}
+    assert model._audio_decoder._compiled_kvcached_layers == ["compiled-1"]
+
+
+def test_decoder_forward_kvcached_uses_compiled_callables_when_present() -> None:
+    from sglang_omni.models.fishaudio_s2_pro.fish_speech.models.text2semantic.modeling import (
+        FishQwen3AudioDecoder,
+    )
+
+    class _EagerLayer:
+        def forward_kvcached(
+            self, x: torch.Tensor, freqs_cis: torch.Tensor, cache_seqlens: torch.Tensor
+        ) -> torch.Tensor:
+            del x, freqs_cis, cache_seqlens
+            raise AssertionError("eager layer path should be bypassed")
+
+    decoder = object.__new__(FishQwen3AudioDecoder)
+    decoder.input_pos = torch.zeros(1, dtype=torch.long)
+    decoder.freqs_cis = torch.zeros(8, 1, 1, dtype=torch.float32)
+    decoder.layers = [_EagerLayer(), _EagerLayer()]
+    decoder.norm = lambda x: x + 1
+    decoder.output = lambda x: x * 2
+
+    seen_calls: list[str] = []
+
+    def compiled_a(
+        x: torch.Tensor, freqs_cis: torch.Tensor, cache_seqlens: torch.Tensor
+    ) -> torch.Tensor:
+        del freqs_cis, cache_seqlens
+        seen_calls.append("a")
+        return x + 2
+
+    def compiled_b(
+        x: torch.Tensor, freqs_cis: torch.Tensor, cache_seqlens: torch.Tensor
+    ) -> torch.Tensor:
+        del freqs_cis, cache_seqlens
+        seen_calls.append("b")
+        return x + 3
+
+    decoder._compiled_kvcached_layers = [compiled_a, compiled_b]
+    decoder._compiled_layers = [object()]
+
+    x = torch.ones((2, 1, 4), dtype=torch.float32)
+    out = FishQwen3AudioDecoder.forward_kvcached(decoder, x=x, codebook_idx=2)
+
+    assert torch.equal(out, torch.full_like(x, 14.0))
+    assert seen_calls == ["a", "b"]
