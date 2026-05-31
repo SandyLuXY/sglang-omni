@@ -358,8 +358,8 @@ def test_s2pro_engine_disables_generic_compile_after_local_compile(
 
     fake_sglang_backend = ModuleType("sglang_omni.scheduling.sglang_backend")
     fake_sglang_backend.build_sglang_server_args = fake_build_sglang_server_args
-    fake_sglang_backend.SGLangOutputProcessor = (
-        lambda **kwargs: SimpleNamespace(**kwargs)
+    fake_sglang_backend.SGLangOutputProcessor = lambda **kwargs: SimpleNamespace(
+        **kwargs
     )
 
     fake_fish_scheduler = ModuleType(
@@ -373,8 +373,8 @@ def test_s2pro_engine_disables_generic_compile_after_local_compile(
     fake_fish_scheduler.FishScheduler = _FakeFishScheduler
 
     fake_model_runner = ModuleType("sglang_omni.models.fishaudio_s2_pro.model_runner")
-    fake_model_runner.FishS2ProModelRunner = (
-        lambda *args, **kwargs: SimpleNamespace(args=args, kwargs=kwargs)
+    fake_model_runner.FishS2ProModelRunner = lambda *args, **kwargs: SimpleNamespace(
+        args=args, kwargs=kwargs
     )
 
     monkeypatch.setitem(

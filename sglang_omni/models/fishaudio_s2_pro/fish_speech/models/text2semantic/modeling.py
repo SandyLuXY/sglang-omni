@@ -948,9 +948,9 @@ class FishQwen3AudioDecoder(PreTrainedModel):
         self._eager_forward_kvcached_layers: list[
             Callable[[Tensor, Tensor, Tensor], Tensor]
         ] = [layer.forward_kvcached for layer in self.layers]
-        self._compiled_forward_kvcached_layers: list[
-            Callable[[Tensor, Tensor, Tensor], Tensor]
-        ] | None = None
+        self._compiled_forward_kvcached_layers: (
+            list[Callable[[Tensor, Tensor, Tensor], Tensor]] | None
+        ) = None
         self._compiled_forward_kvcached_max_bs = 0
         self.norm = RMSNorm(config.dim, eps=config.norm_eps)
         self.output = nn.Linear(config.dim, config.vocab_size, bias=False)
