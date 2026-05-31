@@ -31,12 +31,14 @@ def _compile_s2pro_codebook_decoder(model: Any) -> None:
         "max-autotune-no-cudagraphs",
     )
     audio_decoder = model._audio_decoder
-    compiled_layer_count = audio_decoder.compile_forward_kvcached_layers(
-        mode=compile_mode
-    )
+    compiled_forward_kvcached_layers = [
+        torch.compile(layer.forward_kvcached, mode=compile_mode)
+        for layer in audio_decoder.layers
+    ]
+    audio_decoder.set_forward_kvcached_layers(compiled_forward_kvcached_layers)
     logger.info(
         "Compiled %d Fast AR decoder layers (mode=%s)",
-        compiled_layer_count,
+        len(compiled_forward_kvcached_layers),
         compile_mode,
     )
 

@@ -257,12 +257,10 @@ def test_s2pro_compile_helper_targets_forward_kvcached(
         def __init__(self) -> None:
             self.layers = [_Layer()]
 
-        def compile_forward_kvcached_layers(self, *, mode: str) -> int:
-            self._forward_kvcached_layers = [
-                torch.compile(layer.forward_kvcached, mode=mode)
-                for layer in self.layers
-            ]
-            return len(self._forward_kvcached_layers)
+        def set_forward_kvcached_layers(
+            self, forward_kvcached_layers: list[object]
+        ) -> None:
+            self._forward_kvcached_layers = forward_kvcached_layers
 
     audio_decoder = _AudioDecoder()
     model = SimpleNamespace(_audio_decoder=audio_decoder)

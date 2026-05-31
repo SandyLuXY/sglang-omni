@@ -1009,12 +1009,11 @@ class FishQwen3AudioDecoder(PreTrainedModel):
                 layer.attention.kv_cache.k_cache.zero_()
                 layer.attention.kv_cache.v_cache.zero_()
 
-    def compile_forward_kvcached_layers(self, *, mode: str) -> int:
-        """Compile Fast AR decoder layer calls used by the codebook loop."""
-        self._forward_kvcached_layers = [
-            torch.compile(layer.forward_kvcached, mode=mode) for layer in self.layers
-        ]
-        return len(self._forward_kvcached_layers)
+    def set_forward_kvcached_layers(
+        self,
+        forward_kvcached_layers: list[Callable[[Tensor, Tensor, Tensor], Tensor]],
+    ) -> None:
+        self._forward_kvcached_layers = forward_kvcached_layers
 
     def forward_kvcached(
         self,
@@ -1041,8 +1040,8 @@ class FishQwen3AudioDecoder(PreTrainedModel):
         # cache_seqlens: current position in cache for each batch item
         cache_seqlens = self.input_pos.expand(bsz).to(torch.int32)
 
-        for layer_call in self._forward_kvcached_layers:
-            x = layer_call(x, freqs_cis, cache_seqlens)
+        for layer in self._forward_kvcached_layers:
+            x = layer(x, freqs_cis, cache_seqlens)
 
         x = self.norm(x)
         return self.output(x)
