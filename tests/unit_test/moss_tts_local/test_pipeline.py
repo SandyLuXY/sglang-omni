@@ -593,6 +593,137 @@ def test_batched_reference_encoder_coalesces_and_isolates_errors():
     assert any(len(c) > 1 for c in calls) or len(calls) >= 3
 
 
+def test_batched_reference_encoder_preserves_order_and_deduplicates_paths():
+    import threading
+
+    from sglang_omni.models.moss_tts_local.stages import _BatchedReferenceEncoder
+
+    calls = []
+
+    class _FakeCodecProcessor:
+        def encode_audios_from_path(self, paths):
+            calls.append(list(paths))
+            return [
+                torch.full((2, N_VQ), 100 + i, dtype=torch.long)
+                for i, _ in enumerate(paths)
+            ]
+
+    encoder = _BatchedReferenceEncoder(
+        _FakeCodecProcessor(), max_batch_size=4, max_batch_wait_ms=100
+    )
+    paths = ["same.wav", "other.wav", "same.wav", "third.wav"]
+    results = [None] * len(paths)
+    barrier = threading.Barrier(len(paths))
+
+    def run(index, path):
+        barrier.wait(timeout=10)
+        results[index] = encoder.encode(path)
+
+    threads = [threading.Thread(target=run, args=item) for item in enumerate(paths)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=10)
+
+    assert all(isinstance(result, torch.Tensor) for result in results)
+    batched_call = next(call for call in calls if len(call) == 3)
+    assert set(batched_call) == {"same.wav", "other.wav", "third.wav"}
+    expected_by_path = {path: 100 + index for index, path in enumerate(batched_call)}
+    torch.testing.assert_close(results[0], results[2])
+    for path, result in zip(paths, results):
+        assert int(result[0, 0]) == expected_by_path[path]
+
+
+def test_batched_reference_encoder_malformed_batch_output_falls_back_per_item():
+    import threading
+
+    from sglang_omni.models.moss_tts_local.stages import _BatchedReferenceEncoder
+
+    calls = []
+
+    class _FakeCodecProcessor:
+        def encode_audios_from_path(self, paths):
+            calls.append(list(paths))
+            if len(paths) > 1:
+                return [torch.zeros((1, N_VQ), dtype=torch.long)]
+            return [torch.full((1, N_VQ), len(paths[0]), dtype=torch.long)]
+
+    encoder = _BatchedReferenceEncoder(
+        _FakeCodecProcessor(), max_batch_size=2, max_batch_wait_ms=100
+    )
+    paths = ["aa", "bbbb"]
+    results = [None] * len(paths)
+    barrier = threading.Barrier(len(paths))
+
+    def run(index, path):
+        barrier.wait(timeout=10)
+        results[index] = encoder.encode(path)
+
+    threads = [threading.Thread(target=run, args=item) for item in enumerate(paths)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=10)
+
+    assert [int(result[0, 0]) for result in results] == [2, 4]
+    assert any(len(call) == 2 for call in calls)
+    assert ["aa"] in calls
+    assert ["bbbb"] in calls
+
+
+def test_build_processor_message_uses_batched_encoder_for_file_paths():
+    from sglang_omni.models.moss_tts_local.request_builders import (
+        _build_processor_message,
+    )
+
+    class _RecordingProcessor:
+        @staticmethod
+        def build_user_message(**kwargs):
+            return kwargs
+
+    class _RecordingReferenceEncoder:
+        def __init__(self):
+            self.paths = []
+
+        def encode(self, path):
+            self.paths.append(path)
+            return torch.full((2, N_VQ), 7, dtype=torch.long)
+
+    reference_encoder = _RecordingReferenceEncoder()
+    message = _build_processor_message(
+        _RecordingProcessor(),
+        MossTTSLocalState(text="hello", ref_audio="voice.wav"),
+        reference_encoder,
+    )
+
+    assert reference_encoder.paths == ["voice.wav"]
+    assert torch.equal(message["reference"][0], torch.full((2, N_VQ), 7))
+
+
+def test_build_processor_message_keeps_non_path_references_on_processor_path():
+    from sglang_omni.models.moss_tts_local.request_builders import (
+        _build_processor_message,
+    )
+
+    class _RecordingProcessor:
+        @staticmethod
+        def build_user_message(**kwargs):
+            return kwargs
+
+    class _FailingReferenceEncoder:
+        def encode(self, path):
+            raise AssertionError("non-path references must not be batch encoded")
+
+    reference = torch.full((2, N_VQ), 9, dtype=torch.long)
+    message = _build_processor_message(
+        _RecordingProcessor(),
+        MossTTSLocalState(text="hello", ref_audio=reference),
+        _FailingReferenceEncoder(),
+    )
+
+    assert message["reference"][0] is reference
+
+
 # ---------------------------------------------------------------------------
 # CachedReferenceEncoder  (T3–T9)
 # ---------------------------------------------------------------------------

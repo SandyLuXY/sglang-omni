@@ -163,15 +163,37 @@ class _BatchedReferenceEncoder:
 
     def _drain_batch(self) -> list[tuple[str, concurrent.futures.Future]]:
         batch = [self._queue.get()]
+        deadline = time.monotonic() + self._max_wait_s
         while len(batch) < self._max_batch_size:
             try:
-                if self._max_wait_s > 0:
-                    batch.append(self._queue.get(timeout=self._max_wait_s))
-                else:
+                if self._max_wait_s <= 0:
                     batch.append(self._queue.get_nowait())
+                else:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        break
+                    batch.append(self._queue.get(timeout=remaining))
             except queue.Empty:
                 break
         return batch
+
+    def _encode_paths(self, paths: list[str]) -> dict[str, Any]:
+        encoded = list(self._processor.encode_audios_from_path(paths))
+        if len(encoded) != len(paths):
+            raise RuntimeError(
+                "MOSS-TTS Local reference encode returned "
+                f"{len(encoded)} results for {len(paths)} paths"
+            )
+        return dict(zip(paths, encoded))
+
+    def _encode_one_path(self, path: str) -> Any:
+        encoded = list(self._processor.encode_audios_from_path([path]))
+        if len(encoded) != 1:
+            raise RuntimeError(
+                "MOSS-TTS Local reference encode returned "
+                f"{len(encoded)} results for one path"
+            )
+        return encoded[0]
 
     def _worker(self) -> None:
         while True:
@@ -179,8 +201,7 @@ class _BatchedReferenceEncoder:
             unique_paths = list(dict.fromkeys(path for path, _ in batch))
             results: dict[str, Any] = {}
             try:
-                encoded = self._processor.encode_audios_from_path(unique_paths)
-                results = dict(zip(unique_paths, encoded))
+                results = self._encode_paths(unique_paths)
             except Exception:
                 logger.exception(
                     "MOSS-TTS Local batched reference encode failed; "
@@ -188,9 +209,7 @@ class _BatchedReferenceEncoder:
                 )
                 for path in unique_paths:
                     try:
-                        results[path] = self._processor.encode_audios_from_path([path])[
-                            0
-                        ]
+                        results[path] = self._encode_one_path(path)
                     except Exception as exc:
                         results[path] = exc
             for path, future in batch:
