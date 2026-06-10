@@ -174,7 +174,12 @@ def test_pipeline_stage_wiring():
         assert "moss_tts_local" in stage.factory
     assert stages["preprocessing"].process == "pipeline"
     assert stages["preprocessing"].gpu == 0
-    assert stages["preprocessing"].factory_args["device"] == "cuda:1"
+    preprocessing_args = stages["preprocessing"].factory_args
+    assert preprocessing_args["device"] == "cuda:1"
+    assert preprocessing_args["enable_audio_encoder_torch_compile"] is True
+    assert preprocessing_args["audio_encoder_torch_compile_mode"] == "default"
+    assert preprocessing_args["audio_encoder_torch_compile_warmup_seconds"] == [1.0]
+    assert "audio_encoder_torch_compile_dynamic" not in preprocessing_args
     assert stages["tts_engine"].process == "pipeline"
     assert stages["tts_engine"].gpu == 0
     assert stages["vocoder"].process == "pipeline"
@@ -190,7 +195,13 @@ def test_pipeline_stage_wiring():
         model_path="OpenMOSS-Team/moss-local-test"
     )
     colocated_stages = {stage.name: stage for stage in colocated.stages}
-    assert colocated_stages["preprocessing"].factory_args["device"] == "cuda:0"
+    colocated_preprocessing_args = colocated_stages["preprocessing"].factory_args
+    assert colocated_preprocessing_args["device"] == "cuda:0"
+    assert colocated_preprocessing_args["enable_audio_encoder_torch_compile"] is True
+    assert (
+        colocated_preprocessing_args["audio_encoder_torch_compile_warmup_seconds"]
+        == [1.0]
+    )
     assert colocated_stages["vocoder"].factory_args["device"] == "cuda:0"
 
 
@@ -320,6 +331,293 @@ def test_create_preprocessing_executor_env_toggle(monkeypatch):
     assert isinstance(
         rb._PREPROCESSING_CONTEXT.reference_encoder, stages.CachedReferenceEncoder
     )
+
+
+def test_load_processor_compiles_audio_encoder_when_enabled(monkeypatch):
+    import contextlib
+    from pathlib import Path
+    from types import SimpleNamespace
+
+    from sglang_omni.models.moss_tts_local import stages
+
+    compile_calls = []
+    warmup_paths = []
+
+    class _Quantizer(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.calls = 0
+            self.compiled_calls = 0
+            self.grad_enabled = []
+
+        @torch.no_grad()
+        def forward(self, z, input_length, n_quantizers=None):
+            del input_length, n_quantizers
+            self.calls += 1
+            self.grad_enabled.append(torch.is_grad_enabled())
+            return z
+
+    class _AudioTokenizer:
+        def __init__(self):
+            self.quantizer = _Quantizer()
+            self.eval_called = False
+            self.device = None
+
+        def eval(self):
+            self.eval_called = True
+            return self
+
+        def to(self, device):
+            self.device = device
+            return self
+
+    class _Processor:
+        def __init__(self):
+            self.audio_tokenizer = _AudioTokenizer()
+            self.model_config = SimpleNamespace(
+                audio_vocab_size=1024,
+                sampling_rate=10,
+            )
+
+        def encode_audios_from_path(self, paths):
+            warmup_paths.extend(paths)
+            for path in paths:
+                assert Path(path).is_file()
+            z = torch.ones((1, 1), dtype=torch.float32)
+            length = torch.ones((1,), dtype=torch.long)
+            return [self.audio_tokenizer.quantizer(z, length, None)]
+
+    processor = _Processor()
+    original_forward = processor.audio_tokenizer.quantizer.forward
+
+    class _ProcessorCls:
+        @classmethod
+        def from_pretrained(cls, checkpoint_dir, trust_remote_code):
+            assert checkpoint_dir == "checkpoint"
+            assert trust_remote_code is True
+            return processor
+
+    def fake_compile(target, **kwargs):
+        compile_calls.append((target, kwargs))
+
+        def wrapped(*args, **kwargs):
+            processor.audio_tokenizer.quantizer.compiled_calls += 1
+            return target(*args, **kwargs)
+
+        return wrapped
+
+    monkeypatch.setattr(stages, "_resolve_checkpoint", lambda _: "checkpoint")
+    monkeypatch.setattr(stages, "_load_moss_processor_class", lambda _: _ProcessorCls)
+    monkeypatch.setattr(
+        stages, "_moss_transformers_processor_compat", contextlib.nullcontext
+    )
+    monkeypatch.setattr(stages.torch, "compile", fake_compile)
+
+    loaded = stages._load_moss_tts_local_processor(
+        "model",
+        device="cuda:7",
+        enable_audio_encoder_torch_compile=True,
+        audio_encoder_torch_compile_mode="reduce-overhead",
+        audio_encoder_torch_compile_warmup_seconds=[0.1, 0.2],
+    )
+
+    assert loaded is processor
+    assert processor.audio_tokenizer.eval_called is True
+    assert processor.audio_tokenizer.device == "cuda:7"
+    assert len(compile_calls) == 1
+    target, kwargs = compile_calls[0]
+    assert getattr(target, "__name__", "") == "forward"
+    assert target is not original_forward
+    assert kwargs == {
+        "mode": "reduce-overhead",
+        "fullgraph": False,
+        "dynamic": False,
+    }
+    assert len(warmup_paths) == 2
+    assert processor.audio_tokenizer.quantizer.calls == 2
+    assert processor.audio_tokenizer.quantizer.compiled_calls == 2
+    assert processor.audio_tokenizer.quantizer.grad_enabled == [False, False]
+
+
+def test_load_processor_leaves_audio_encoder_eager_by_default(monkeypatch):
+    import contextlib
+    from types import SimpleNamespace
+
+    from sglang_omni.models.moss_tts_local import stages
+
+    class _ProcessorCls:
+        @classmethod
+        def from_pretrained(cls, checkpoint_dir, trust_remote_code):
+            return SimpleNamespace(
+                audio_tokenizer=SimpleNamespace(
+                    eval=lambda: None,
+                    to=lambda device: None,
+                    quantizer=SimpleNamespace(forward=lambda x: x),
+                ),
+                model_config=SimpleNamespace(audio_vocab_size=1024),
+            )
+
+    def unexpected_compile(*args, **kwargs):
+        raise AssertionError("torch.compile should not run")
+
+    monkeypatch.setattr(stages, "_resolve_checkpoint", lambda _: "checkpoint")
+    monkeypatch.setattr(stages, "_load_moss_processor_class", lambda _: _ProcessorCls)
+    monkeypatch.setattr(
+        stages, "_moss_transformers_processor_compat", contextlib.nullcontext
+    )
+    monkeypatch.setattr(stages.torch, "compile", unexpected_compile)
+
+    stages._load_moss_tts_local_processor("model", device="cuda:0")
+
+
+def test_audio_encoder_compile_reports_missing_target():
+    from types import SimpleNamespace
+
+    from sglang_omni.models.moss_tts_local import stages
+
+    processor = SimpleNamespace(audio_tokenizer=SimpleNamespace())
+    with pytest.raises(RuntimeError, match="has no quantizer"):
+        stages._compile_moss_tts_local_audio_encoder(processor)
+
+
+def test_audio_encoder_warmup_seconds_validation():
+    from sglang_omni.models.moss_tts_local import stages
+
+    assert stages._normalize_audio_encoder_warmup_seconds(None) == (1.0,)
+    assert stages._normalize_audio_encoder_warmup_seconds([1, 3.0]) == (1.0, 3.0)
+    with pytest.raises(RuntimeError, match="warm-up is empty"):
+        stages._normalize_audio_encoder_warmup_seconds([])
+    with pytest.raises(RuntimeError, match="must be positive"):
+        stages._normalize_audio_encoder_warmup_seconds([0])
+
+
+def test_audio_encoder_compile_failure_restores_forward(monkeypatch):
+    from types import SimpleNamespace
+
+    from sglang_omni.models.moss_tts_local import stages
+
+    class _Quantizer(torch.nn.Module):
+        @torch.no_grad()
+        def forward(self, z, input_length, n_quantizers=None):
+            del input_length, n_quantizers
+            return z
+
+    class _Processor:
+        def __init__(self):
+            self.audio_tokenizer = SimpleNamespace(quantizer=_Quantizer())
+            self.model_config = SimpleNamespace(sampling_rate=10)
+
+        def encode_audios_from_path(self, paths):
+            del paths
+            z = torch.ones((1, 1), dtype=torch.float32)
+            length = torch.ones((1,), dtype=torch.long)
+            return [self.audio_tokenizer.quantizer(z, length, None)]
+
+    processor = _Processor()
+
+    def fake_compile(target, **kwargs):
+        del target, kwargs
+
+        def wrapped(*args, **kwargs):
+            del args, kwargs
+            raise RuntimeError("warmup failed")
+
+        return wrapped
+
+    monkeypatch.setattr(stages.torch, "compile", fake_compile)
+
+    with pytest.raises(RuntimeError, match="torch.compile failed"):
+        stages._compile_moss_tts_local_audio_encoder(processor)
+
+    assert "forward" not in processor.audio_tokenizer.quantizer.__dict__
+    out = processor.encode_audios_from_path(["still-eager.wav"])[0]
+    torch.testing.assert_close(out, torch.ones((1, 1), dtype=torch.float32))
+
+
+def test_create_preprocessing_executor_forwards_compile_options(monkeypatch):
+    from types import SimpleNamespace
+
+    from sglang_omni.models.moss_tts_local import stages
+
+    calls = {}
+
+    def fake_load_processor(model_path, **kwargs):
+        calls["load_kwargs"] = kwargs
+        return SimpleNamespace()
+
+    monkeypatch.setattr(
+        stages, "_load_moss_tts_local_processor", fake_load_processor
+    )
+
+    try:
+        stages.create_preprocessing_executor(
+            "model",
+            device="cuda:4",
+            audio_encoder_torch_compile_mode=None,
+            audio_encoder_torch_compile_warmup_seconds=[1.0, 3.0],
+        )
+    finally:
+        clear_moss_tts_local_preprocessing_context()
+
+    assert calls["load_kwargs"]["device"] == "cuda:4"
+    assert calls["load_kwargs"]["enable_audio_encoder_torch_compile"] is True
+    assert calls["load_kwargs"]["audio_encoder_torch_compile_mode"] is None
+    assert calls["load_kwargs"]["audio_encoder_torch_compile_warmup_seconds"] == [
+        1.0,
+        3.0,
+    ]
+
+
+def test_create_preprocessing_executor_skips_warmup_when_compile_disabled(
+    monkeypatch,
+):
+    from sglang_omni.models.moss_tts_local import stages
+
+    calls = {}
+
+    class _Processor:
+        def encode_audios_from_path(self, paths):
+            raise AssertionError("warm-up should not run")
+
+    def fake_load_processor(model_path, **kwargs):
+        calls["load_kwargs"] = kwargs
+        return _Processor()
+
+    monkeypatch.setattr(
+        stages, "_load_moss_tts_local_processor", fake_load_processor
+    )
+
+    try:
+        stages.create_preprocessing_executor(
+            "model",
+            device="cuda:4",
+            enable_audio_encoder_torch_compile=False,
+        )
+    finally:
+        clear_moss_tts_local_preprocessing_context()
+
+    assert calls["load_kwargs"]["enable_audio_encoder_torch_compile"] is False
+    assert "audio_encoder_torch_compile_dynamic" not in calls["load_kwargs"]
+
+
+def test_vocoder_executor_does_not_enable_audio_encoder_compile(monkeypatch):
+    from types import SimpleNamespace
+
+    from sglang_omni.models.moss_tts_local import stages
+
+    calls = {}
+
+    def fake_load_processor(model_path, **kwargs):
+        calls["load_kwargs"] = kwargs
+        return SimpleNamespace(model_config=SimpleNamespace(sampling_rate=48000))
+
+    monkeypatch.setattr(
+        stages, "_load_moss_tts_local_processor", fake_load_processor
+    )
+
+    stages.create_vocoder_executor("model", device="cuda:5")
+
+    assert calls["load_kwargs"] == {"device": "cuda:5"}
 
 
 def test_preprocess_and_result_adapter():

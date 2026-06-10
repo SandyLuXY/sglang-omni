@@ -4,11 +4,16 @@
 from __future__ import annotations
 
 import concurrent.futures
+import inspect
 import logging
 import os
 import queue
+import tempfile
 import threading
 import time
+import types
+import wave
+from collections.abc import Sequence
 from typing import Any
 
 import torch
@@ -43,6 +48,11 @@ _MOSS_TTS_LOCAL_INSTALL_HINT = (
     "Launch with trust_remote_code=True and make sure the checkpoint can load "
     "OpenMOSS-Team/MOSS-Audio-Tokenizer-v2."
 )
+
+_MISSING = object()
+# Keep the compile target fixed and static: broader encode entrypoints mix
+# Python control flow with tensor work and are prone to Dynamo recompilation.
+_AUDIO_ENCODER_COMPILE_TARGET = "audio_tokenizer.quantizer.forward"
 
 # NOTE: the preprocessing and vocoder stages each load their own processor
 # (and thus their own ~4.3 GB bf16 codec instance). The codec's chunked decode
@@ -87,7 +97,178 @@ def _resolve_codec_device(device: str | None, gpu_id: int | None) -> str:
     return "cuda:0"
 
 
-def _load_moss_tts_local_processor(model_path: str, *, device: str) -> Any:
+def _get_instance_attr(instance: Any, name: str) -> Any:
+    instance_dict = getattr(instance, "__dict__", None)
+    if isinstance(instance_dict, dict) and name in instance_dict:
+        return instance_dict[name]
+    return _MISSING
+
+
+def _restore_instance_attr(instance: Any, name: str, value: Any) -> None:
+    if value is _MISSING:
+        try:
+            delattr(instance, name)
+        except AttributeError:
+            pass
+        return
+    setattr(instance, name, value)
+
+
+def _bind_unwrapped_callable(callable_obj: Any, owner: Any) -> Any:
+    callable_obj = inspect.unwrap(callable_obj)
+    if inspect.ismethod(callable_obj):
+        callable_obj = callable_obj.__func__
+    if inspect.isfunction(callable_obj):
+        return types.MethodType(callable_obj, owner)
+    return callable_obj
+
+
+def _normalize_audio_encoder_warmup_seconds(
+    warmup_seconds: Sequence[float] | None,
+) -> tuple[float, ...]:
+    source = (1.0,) if warmup_seconds is None else warmup_seconds
+    values = tuple(float(value) for value in source)
+    if not values:
+        raise RuntimeError("MOSS-TTS Local audio encoder warm-up is empty")
+    for value in values:
+        if value <= 0:
+            raise RuntimeError(
+                "MOSS-TTS Local audio encoder warm-up seconds must be positive"
+            )
+    return values
+
+
+def _compile_moss_tts_local_audio_encoder(
+    processor: Any,
+    *,
+    mode: str | None = "default",
+    warmup_seconds: Sequence[float] | None = None,
+) -> None:
+    audio_tokenizer = getattr(processor, "audio_tokenizer", None)
+    if audio_tokenizer is None:
+        raise RuntimeError(
+            "MOSS-TTS Local audio encoder torch.compile is enabled, but the "
+            "processor has no audio_tokenizer"
+        )
+    quantizer = getattr(audio_tokenizer, "quantizer", None)
+    if quantizer is None:
+        raise RuntimeError(
+            "MOSS-TTS Local audio encoder torch.compile is enabled, but "
+            "audio_tokenizer has no quantizer"
+        )
+    target_forward = getattr(quantizer, "forward", None)
+    if not callable(target_forward):
+        raise RuntimeError(
+            "MOSS-TTS Local audio encoder torch.compile is enabled, but "
+            "audio_tokenizer.quantizer.forward is not callable"
+        )
+    if not hasattr(torch, "compile"):
+        raise RuntimeError(
+            "MOSS-TTS Local audio encoder torch.compile is enabled, but this "
+            "PyTorch build does not provide torch.compile"
+        )
+
+    if getattr(target_forward, "_sglang_omni_torch_compiled", False):
+        logger.info(
+            "MOSS-TTS Local audio encoder already compiled at %s",
+            _AUDIO_ENCODER_COMPILE_TARGET,
+        )
+        return
+
+    original_forward = _get_instance_attr(quantizer, "forward")
+    compile_target = _bind_unwrapped_callable(target_forward, quantizer)
+    # The quantizer call is the stable tensor-heavy boundary; keep it static to
+    # avoid the recompilation pressure seen when compiling broader encode paths.
+    compile_kwargs: dict[str, Any] = {"fullgraph": False, "dynamic": False}
+    if mode is not None:
+        compile_kwargs["mode"] = mode
+
+    try:
+        compiled_callable = torch.compile(compile_target, **compile_kwargs)
+
+        def compiled_forward(*args: Any, **kwargs: Any) -> Any:
+            with torch.inference_mode():
+                return compiled_callable(*args, **kwargs)
+
+        try:
+            setattr(compiled_forward, "_sglang_omni_torch_compiled", True)
+        except Exception:
+            pass
+        setattr(quantizer, "forward", compiled_forward)
+        _warm_up_moss_tts_local_audio_encoder(
+            processor,
+            warmup_seconds=_normalize_audio_encoder_warmup_seconds(warmup_seconds),
+        )
+    except Exception as exc:
+        _restore_instance_attr(quantizer, "forward", original_forward)
+        logger.exception(
+            "MOSS-TTS Local audio encoder torch.compile failed for %s",
+            _AUDIO_ENCODER_COMPILE_TARGET,
+        )
+        raise RuntimeError(
+            "MOSS-TTS Local audio encoder torch.compile failed for "
+            f"{_AUDIO_ENCODER_COMPILE_TARGET}"
+        ) from exc
+
+    logger.info(
+        "Compiled MOSS-TTS Local audio encoder at %s (mode=%s, fullgraph=False, "
+        "dynamic=False)",
+        _AUDIO_ENCODER_COMPILE_TARGET,
+        mode,
+    )
+
+
+def _processor_sample_rate(processor: Any) -> int:
+    model_config = getattr(processor, "model_config", None)
+    audio_tokenizer = getattr(processor, "audio_tokenizer", None)
+    tokenizer_config = getattr(audio_tokenizer, "config", None)
+    return int(
+        getattr(model_config, "sampling_rate", 0)
+        or getattr(tokenizer_config, "sampling_rate", 0)
+        or 48000
+    )
+
+
+def _write_silent_wav(path: str, *, sample_rate: int, duration_s: float) -> None:
+    frame_count = max(int(sample_rate * duration_s), 1)
+    with wave.open(path, "wb") as wav:
+        wav.setnchannels(1)
+        wav.setsampwidth(2)
+        wav.setframerate(sample_rate)
+        wav.writeframes(b"\x00\x00" * frame_count)
+
+
+def _warm_up_moss_tts_local_audio_encoder(
+    processor: Any,
+    *,
+    warmup_seconds: Sequence[float],
+) -> None:
+    sample_rate = _processor_sample_rate(processor)
+    for seconds in warmup_seconds:
+        fd, path = tempfile.mkstemp(suffix=".wav")
+        os.close(fd)
+        try:
+            _write_silent_wav(path, sample_rate=sample_rate, duration_s=seconds)
+            processor.encode_audios_from_path([path])
+        except Exception as exc:
+            raise RuntimeError(
+                "MOSS-TTS Local audio encoder torch.compile warm-up failed"
+            ) from exc
+        finally:
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+
+
+def _load_moss_tts_local_processor(
+    model_path: str,
+    *,
+    device: str,
+    enable_audio_encoder_torch_compile: bool = False,
+    audio_encoder_torch_compile_mode: str | None = "default",
+    audio_encoder_torch_compile_warmup_seconds: Sequence[float] | None = None,
+) -> Any:
     checkpoint_dir = _resolve_checkpoint(model_path)
     logger.info(
         "Loading MOSS-TTS Local processor from %s on %s", checkpoint_dir, device
@@ -112,6 +293,12 @@ def _load_moss_tts_local_processor(model_path: str, *, device: str) -> Any:
             # encoder/decoder with an fp32 quantizer); a blanket dtype cast
             # would corrupt the quantizer codebooks.
             audio_tokenizer.to(device)
+    if enable_audio_encoder_torch_compile:
+        _compile_moss_tts_local_audio_encoder(
+            processor,
+            mode=audio_encoder_torch_compile_mode,
+            warmup_seconds=audio_encoder_torch_compile_warmup_seconds,
+        )
     return processor
 
 
@@ -432,6 +619,9 @@ def create_preprocessing_executor(
     ref_audio_cache: bool = True,
     ref_audio_cache_max_items: int = 256,
     ref_audio_cache_max_bytes: int = 64 * 1024 * 1024,
+    enable_audio_encoder_torch_compile: bool = True,
+    audio_encoder_torch_compile_mode: str | None = "default",
+    audio_encoder_torch_compile_warmup_seconds: Sequence[float] | None = None,
 ) -> SimpleScheduler:
     # MOSS_REF_AUDIO_CACHE=0 disables the cache at startup (ops kill switch / A-B
     # toggle) without a config edit; unset => kwarg default.
@@ -445,7 +635,15 @@ def create_preprocessing_executor(
             "",
         )
     device = _resolve_codec_device(device, gpu_id)
-    processor = _load_moss_tts_local_processor(model_path, device=device)
+    processor = _load_moss_tts_local_processor(
+        model_path,
+        device=device,
+        enable_audio_encoder_torch_compile=enable_audio_encoder_torch_compile,
+        audio_encoder_torch_compile_mode=audio_encoder_torch_compile_mode,
+        audio_encoder_torch_compile_warmup_seconds=(
+            audio_encoder_torch_compile_warmup_seconds
+        ),
+    )
     reference_encoder: Any = _BatchedReferenceEncoder(
         processor,
         max_batch_size=encode_batch_size,
