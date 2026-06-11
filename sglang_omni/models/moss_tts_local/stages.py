@@ -110,13 +110,12 @@ class _BatchedReferenceEncoder:
     Each request needs its reference run through the ~1B-param codec encoder
     (~0.25 GPU-seconds). The preprocessing workers call :meth:`encode`
     concurrently; a single daemon thread drains the queue and encodes up to
-    ``max_batch_size`` files in one ``batch_encode`` forward, which costs
-    barely more than a single encode. Failures fall back to per-item encodes
-    so one bad file only fails its own request.
+    ``max_batch_size`` files, loads/resamples them, and batches only
+    same-length waveforms in one ``batch_encode`` forward. Failures fall back
+    to per-item encodes so one bad file only fails its own request.
     """
 
-    # Mirrors the Higgs reference-audio cap: bounds both encoder runtime and
-    # the batch-padding memory amplification.
+    # Mirrors the Higgs reference-audio cap: bounds encoder runtime and memory.
     MAX_REFERENCE_SECONDS = 100.0
     # An encode batch takes well under a second; a result this late means the
     # worker died or wedged, so fail the request instead of hanging the slot.
@@ -177,12 +176,73 @@ class _BatchedReferenceEncoder:
                 break
         return batch
 
+    def _target_sample_rate(self) -> int:
+        try:
+            audio_tokenizer = getattr(self._processor, "audio_tokenizer", None)
+        except Exception:
+            audio_tokenizer = None
+        try:
+            model_config = getattr(self._processor, "model_config", None)
+        except Exception:
+            model_config = None
+        try:
+            tokenizer_config = getattr(audio_tokenizer, "config", None)
+        except Exception:
+            tokenizer_config = None
+        owners = (
+            model_config,
+            audio_tokenizer,
+            tokenizer_config,
+        )
+        for owner in owners:
+            if owner is None:
+                continue
+            for attr in ("sampling_rate", "sample_rate"):
+                try:
+                    value = getattr(owner, attr, None)
+                except Exception:
+                    continue
+                if value is None:
+                    continue
+                try:
+                    sample_rate = int(value)
+                except (TypeError, ValueError):
+                    continue
+                if sample_rate > 0:
+                    return sample_rate
+        return 48000
+
+    def _load_reference_wav(self, path: str, target_sr: int) -> torch.Tensor:
+        import torchaudio
+
+        wav, sr = torchaudio.load(str(path))
+        if int(sr) != target_sr:
+            wav = torchaudio.functional.resample(wav, int(sr), target_sr)
+        return wav
+
+    @staticmethod
+    def _waveform_length(wav: torch.Tensor) -> int:
+        return int(wav.shape[-1])
+
     def _encode_paths(self, paths: list[str]) -> dict[str, Any]:
         encoded = list(self._processor.encode_audios_from_path(paths))
         if len(encoded) != len(paths):
             raise RuntimeError(
                 "MOSS-TTS Local reference encode returned "
                 f"{len(encoded)} results for {len(paths)} paths"
+            )
+        return dict(zip(paths, encoded))
+
+    def _encode_wavs(
+        self, paths: list[str], wavs: list[torch.Tensor], target_sr: int
+    ) -> dict[str, Any]:
+        if not hasattr(self._processor, "encode_audios_from_wav"):
+            return self._encode_paths(paths)
+        encoded = list(self._processor.encode_audios_from_wav(wavs, target_sr))
+        if len(encoded) != len(paths):
+            raise RuntimeError(
+                "MOSS-TTS Local reference encode returned "
+                f"{len(encoded)} results for {len(paths)} waveforms"
             )
         return dict(zip(paths, encoded))
 
@@ -195,23 +255,53 @@ class _BatchedReferenceEncoder:
             )
         return encoded[0]
 
+    def _encode_one_wav(
+        self, path: str, wav: torch.Tensor, target_sr: int
+    ) -> Any:
+        if not hasattr(self._processor, "encode_audios_from_wav"):
+            return self._encode_one_path(path)
+        encoded = list(self._processor.encode_audios_from_wav([wav], target_sr))
+        if len(encoded) != 1:
+            raise RuntimeError(
+                "MOSS-TTS Local reference encode returned "
+                f"{len(encoded)} results for one waveform"
+            )
+        return encoded[0]
+
     def _worker(self) -> None:
         while True:
             batch = self._drain_batch()
             unique_paths = list(dict.fromkeys(path for path, _ in batch))
             results: dict[str, Any] = {}
-            try:
-                results = self._encode_paths(unique_paths)
-            except Exception:
-                logger.exception(
-                    "MOSS-TTS Local batched reference encode failed; "
-                    "retrying per item"
-                )
-                for path in unique_paths:
+            target_sr = self._target_sample_rate()
+            loaded: dict[str, tuple[torch.Tensor, int]] = {}
+            for path in unique_paths:
+                try:
+                    wav = self._load_reference_wav(path, target_sr)
+                    loaded[path] = (wav, self._waveform_length(wav))
+                except Exception:
                     try:
                         results[path] = self._encode_one_path(path)
                     except Exception as exc:
                         results[path] = exc
+            buckets: dict[int, list[str]] = {}
+            for path in unique_paths:
+                if path in loaded:
+                    buckets.setdefault(loaded[path][1], []).append(path)
+            for bucket_paths in buckets.values():
+                wavs = [loaded[path][0] for path in bucket_paths]
+                try:
+                    results.update(self._encode_wavs(bucket_paths, wavs, target_sr))
+                except Exception:
+                    logger.exception(
+                        "MOSS-TTS Local batched reference encode failed; "
+                        "retrying per item"
+                    )
+                    for path, wav in zip(bucket_paths, wavs):
+                        try:
+                            results[path] = self._encode_one_wav(path, wav, target_sr)
+                        except Exception as exc:
+                            results[path] = exc
             for path, future in batch:
                 outcome = results.get(path)
                 if isinstance(outcome, Exception):

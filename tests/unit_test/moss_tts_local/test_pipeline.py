@@ -38,6 +38,14 @@ from sglang_omni.utils.audio_payload import audio_waveform_payload
 N_VQ = 12
 
 
+class _FakeMossAudioConfig:
+    sampling_rate = 24000
+
+
+def _fake_reference_wav(length: int, marker: int) -> torch.Tensor:
+    return torch.full((1, length), float(marker), dtype=torch.float32)
+
+
 # ---------------------------------------------------------------------------
 # Local transformer numerics
 # ---------------------------------------------------------------------------
@@ -560,27 +568,39 @@ def test_batched_reference_encoder_coalesces_and_isolates_errors():
     calls = []
 
     class _FakeCodecProcessor:
-        def encode_audios_from_path(self, paths):
-            calls.append(list(paths))
-            out = []
-            for p in paths:
-                if "bad" in p:
-                    raise RuntimeError(f"cannot read {p}")
-                out.append(torch.full((4, N_VQ), len(p), dtype=torch.long))
-            return out
+        model_config = _FakeMossAudioConfig()
+
+        def encode_audios_from_wav(self, wavs, sampling_rate):
+            markers = [int(wav[0, 0].item()) for wav in wavs]
+            calls.append(markers)
+            if any(marker < 0 for marker in markers):
+                raise RuntimeError("cannot encode reference")
+            return [
+                torch.full((4, N_VQ), marker, dtype=torch.long)
+                for marker in markers
+            ]
 
     encoder = _BatchedReferenceEncoder(
-        _FakeCodecProcessor(), max_batch_size=4, max_batch_wait_ms=20
+        _FakeCodecProcessor(), max_batch_size=4, max_batch_wait_ms=100
     )
+    wavs = {
+        "aa": _fake_reference_wav(8, 2),
+        "bbb": _fake_reference_wav(8, 3),
+        "bad1": _fake_reference_wav(8, -1),
+    }
+    encoder._load_reference_wav = lambda path, target_sr: wavs[path]
     results = {}
+    paths = ("aa", "bbb", "bad1")
+    barrier = threading.Barrier(len(paths))
 
     def run(path):
         try:
+            barrier.wait(timeout=10)
             results[path] = encoder.encode(path)
         except Exception as exc:
             results[path] = exc
 
-    threads = [threading.Thread(target=run, args=(p,)) for p in ("aa", "bbb", "bad1")]
+    threads = [threading.Thread(target=run, args=(p,)) for p in paths]
     for t in threads:
         t.start()
     for t in threads:
@@ -590,7 +610,72 @@ def test_batched_reference_encoder_coalesces_and_isolates_errors():
     assert results["aa"].shape == (4, N_VQ) and int(results["aa"][0, 0]) == 2
     assert results["bbb"].shape == (4, N_VQ) and int(results["bbb"][0, 0]) == 3
     # The failing batch retried per item; good items still succeeded.
-    assert any(len(c) > 1 for c in calls) or len(calls) >= 3
+    assert any(len(c) == 3 for c in calls)
+    assert [2] in calls
+    assert [3] in calls
+    assert [-1] in calls
+
+
+def test_batched_reference_encoder_buckets_by_resampled_waveform_length():
+    import threading
+
+    from sglang_omni.models.moss_tts_local.stages import _BatchedReferenceEncoder
+
+    calls = []
+    loaded = []
+
+    class _FakeCodecProcessor:
+        model_config = _FakeMossAudioConfig()
+
+        def encode_audios_from_wav(self, wavs, sampling_rate):
+            markers = [int(wav[0, 0].item()) for wav in wavs]
+            calls.append(
+                {
+                    "sampling_rate": int(sampling_rate),
+                    "lengths": [int(wav.shape[-1]) for wav in wavs],
+                    "markers": markers,
+                }
+            )
+            return [
+                torch.full((2, N_VQ), marker, dtype=torch.long)
+                for marker in markers
+            ]
+
+    encoder = _BatchedReferenceEncoder(
+        _FakeCodecProcessor(), max_batch_size=4, max_batch_wait_ms=100
+    )
+    wavs = {
+        "same-a.wav": _fake_reference_wav(8, 11),
+        "long.wav": _fake_reference_wav(13, 22),
+        "same-b.wav": _fake_reference_wav(8, 33),
+    }
+
+    def load_reference(path, target_sr):
+        loaded.append((path, target_sr))
+        return wavs[path]
+
+    encoder._load_reference_wav = load_reference
+    paths = ["same-a.wav", "long.wav", "same-b.wav"]
+    results = [None] * len(paths)
+    barrier = threading.Barrier(len(paths))
+
+    def run(index, path):
+        barrier.wait(timeout=10)
+        results[index] = encoder.encode(path)
+
+    threads = [threading.Thread(target=run, args=item) for item in enumerate(paths)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=10)
+
+    assert [int(result[0, 0]) for result in results] == [11, 22, 33]
+    assert all(
+        target_sr == _FakeMossAudioConfig.sampling_rate for _, target_sr in loaded
+    )
+    assert any(call["lengths"] == [8, 8] for call in calls)
+    assert any(call["lengths"] == [13] for call in calls)
+    assert not any(len(set(call["lengths"])) > 1 for call in calls)
 
 
 def test_batched_reference_encoder_preserves_order_and_deduplicates_paths():
@@ -601,17 +686,25 @@ def test_batched_reference_encoder_preserves_order_and_deduplicates_paths():
     calls = []
 
     class _FakeCodecProcessor:
-        def encode_audios_from_path(self, paths):
-            calls.append(list(paths))
+        model_config = _FakeMossAudioConfig()
+
+        def encode_audios_from_wav(self, wavs, sampling_rate):
+            markers = [int(wav[0, 0].item()) for wav in wavs]
+            calls.append(markers)
             return [
-                torch.full((2, N_VQ), 100 + i, dtype=torch.long)
-                for i, _ in enumerate(paths)
+                torch.full((2, N_VQ), 100 + marker, dtype=torch.long)
+                for marker in markers
             ]
 
     encoder = _BatchedReferenceEncoder(
         _FakeCodecProcessor(), max_batch_size=4, max_batch_wait_ms=100
     )
     paths = ["same.wav", "other.wav", "same.wav", "third.wav"]
+    markers = {"same.wav": 1, "other.wav": 2, "third.wav": 3}
+    wavs = {
+        path: _fake_reference_wav(8, marker) for path, marker in markers.items()
+    }
+    encoder._load_reference_wav = lambda path, target_sr: wavs[path]
     results = [None] * len(paths)
     barrier = threading.Barrier(len(paths))
 
@@ -627,11 +720,10 @@ def test_batched_reference_encoder_preserves_order_and_deduplicates_paths():
 
     assert all(isinstance(result, torch.Tensor) for result in results)
     batched_call = next(call for call in calls if len(call) == 3)
-    assert set(batched_call) == {"same.wav", "other.wav", "third.wav"}
-    expected_by_path = {path: 100 + index for index, path in enumerate(batched_call)}
+    assert set(batched_call) == {1, 2, 3}
     torch.testing.assert_close(results[0], results[2])
     for path, result in zip(paths, results):
-        assert int(result[0, 0]) == expected_by_path[path]
+        assert int(result[0, 0]) == 100 + markers[path]
 
 
 def test_batched_reference_encoder_malformed_batch_output_falls_back_per_item():
@@ -642,16 +734,24 @@ def test_batched_reference_encoder_malformed_batch_output_falls_back_per_item():
     calls = []
 
     class _FakeCodecProcessor:
-        def encode_audios_from_path(self, paths):
-            calls.append(list(paths))
-            if len(paths) > 1:
+        model_config = _FakeMossAudioConfig()
+
+        def encode_audios_from_wav(self, wavs, sampling_rate):
+            markers = [int(wav[0, 0].item()) for wav in wavs]
+            calls.append(markers)
+            if len(wavs) > 1:
                 return [torch.zeros((1, N_VQ), dtype=torch.long)]
-            return [torch.full((1, N_VQ), len(paths[0]), dtype=torch.long)]
+            return [torch.full((1, N_VQ), markers[0], dtype=torch.long)]
 
     encoder = _BatchedReferenceEncoder(
         _FakeCodecProcessor(), max_batch_size=2, max_batch_wait_ms=100
     )
     paths = ["aa", "bbbb"]
+    wavs = {
+        "aa": _fake_reference_wav(8, 2),
+        "bbbb": _fake_reference_wav(8, 4),
+    }
+    encoder._load_reference_wav = lambda path, target_sr: wavs[path]
     results = [None] * len(paths)
     barrier = threading.Barrier(len(paths))
 
@@ -666,9 +766,9 @@ def test_batched_reference_encoder_malformed_batch_output_falls_back_per_item():
         thread.join(timeout=10)
 
     assert [int(result[0, 0]) for result in results] == [2, 4]
-    assert any(len(call) == 2 for call in calls)
-    assert ["aa"] in calls
-    assert ["bbbb"] in calls
+    assert any(call == [2, 4] or call == [4, 2] for call in calls)
+    assert [2] in calls
+    assert [4] in calls
 
 
 def test_build_processor_message_uses_batched_encoder_for_file_paths():
