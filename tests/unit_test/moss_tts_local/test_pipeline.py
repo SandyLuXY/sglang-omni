@@ -576,8 +576,7 @@ def test_batched_reference_encoder_coalesces_and_isolates_errors():
             if any(marker < 0 for marker in markers):
                 raise RuntimeError("cannot encode reference")
             return [
-                torch.full((4, N_VQ), marker, dtype=torch.long)
-                for marker in markers
+                torch.full((4, N_VQ), marker, dtype=torch.long) for marker in markers
             ]
 
     encoder = _BatchedReferenceEncoder(
@@ -637,8 +636,7 @@ def test_batched_reference_encoder_buckets_by_resampled_waveform_length():
                 }
             )
             return [
-                torch.full((2, N_VQ), marker, dtype=torch.long)
-                for marker in markers
+                torch.full((2, N_VQ), marker, dtype=torch.long) for marker in markers
             ]
 
     encoder = _BatchedReferenceEncoder(
@@ -701,9 +699,7 @@ def test_batched_reference_encoder_preserves_order_and_deduplicates_paths():
     )
     paths = ["same.wav", "other.wav", "same.wav", "third.wav"]
     markers = {"same.wav": 1, "other.wav": 2, "third.wav": 3}
-    wavs = {
-        path: _fake_reference_wav(8, marker) for path, marker in markers.items()
-    }
+    wavs = {path: _fake_reference_wav(8, marker) for path, marker in markers.items()}
     encoder._load_reference_wav = lambda path, target_sr: wavs[path]
     results = [None] * len(paths)
     barrier = threading.Barrier(len(paths))
@@ -785,8 +781,7 @@ def test_batched_reference_encoder_without_wav_api_uses_batched_path_encode():
             paths = list(paths)
             calls.append(paths)
             return [
-                torch.full((2, N_VQ), markers[path], dtype=torch.long)
-                for path in paths
+                torch.full((2, N_VQ), markers[path], dtype=torch.long) for path in paths
             ]
 
     encoder = _BatchedReferenceEncoder(
@@ -839,8 +834,7 @@ def test_batched_reference_encoder_load_failure_falls_back_to_batched_path_encod
             paths = list(paths)
             path_calls.append(paths)
             return [
-                torch.full((2, N_VQ), markers[path], dtype=torch.long)
-                for path in paths
+                torch.full((2, N_VQ), markers[path], dtype=torch.long) for path in paths
             ]
 
     encoder = _BatchedReferenceEncoder(
@@ -891,8 +885,7 @@ def test_batched_reference_encoder_wav_failure_falls_back_to_path_encode():
             paths = list(paths)
             path_calls.append(paths)
             return [
-                torch.full((2, N_VQ), markers[path], dtype=torch.long)
-                for path in paths
+                torch.full((2, N_VQ), markers[path], dtype=torch.long) for path in paths
             ]
 
     encoder = _BatchedReferenceEncoder(

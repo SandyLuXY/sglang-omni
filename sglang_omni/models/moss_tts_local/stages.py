@@ -279,9 +279,7 @@ class _BatchedReferenceEncoder:
             )
         return encoded[0]
 
-    def _encode_one_wav(
-        self, path: str, wav: torch.Tensor, target_sr: int
-    ) -> Any:
+    def _encode_one_wav(self, path: str, wav: torch.Tensor, target_sr: int) -> Any:
         wav_encoder = self._wav_encoder()
         if wav_encoder is None:
             raise RuntimeError("MOSS-TTS Local processor cannot encode waveforms")
