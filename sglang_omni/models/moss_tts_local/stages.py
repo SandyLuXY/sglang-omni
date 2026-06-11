@@ -4,14 +4,12 @@
 from __future__ import annotations
 
 import concurrent.futures
-import inspect
 import logging
 import os
 import queue
 import tempfile
 import threading
 import time
-import types
 import wave
 from collections.abc import Sequence
 from typing import Any
@@ -49,10 +47,16 @@ _MOSS_TTS_LOCAL_INSTALL_HINT = (
     "OpenMOSS-Team/MOSS-Audio-Tokenizer-v2."
 )
 
-_MISSING = object()
-# Keep the compile target fixed and static: broader encode entrypoints mix
-# Python control flow with tensor work and are prone to Dynamo recompilation.
-_AUDIO_ENCODER_COMPILE_TARGET = "audio_tokenizer.quantizer.forward"
+# Encoder-like module candidates exposed by the upstream MOSS remote code.
+# If upstream moves the true heavy encoder behind another attribute, add that
+# path after verifying it with inspect.getsource/profiler. Do not fall back to
+# quantizer without benchmark evidence; quantization may not be the hotspot.
+_AUDIO_ENCODER_COMPILE_TARGET_CANDIDATES: tuple[tuple[str, ...], ...] = (
+    ("audio_tokenizer", "acoustic_encoder"),
+    ("audio_tokenizer", "encoder"),
+    ("audio_tokenizer", "model", "acoustic_encoder"),
+    ("audio_tokenizer", "model", "encoder"),
+)
 
 # NOTE: the preprocessing and vocoder stages each load their own processor
 # (and thus their own ~4.3 GB bf16 codec instance). The codec's chunked decode
@@ -97,30 +101,39 @@ def _resolve_codec_device(device: str | None, gpu_id: int | None) -> str:
     return "cuda:0"
 
 
-def _get_instance_attr(instance: Any, name: str) -> Any:
-    instance_dict = getattr(instance, "__dict__", None)
-    if isinstance(instance_dict, dict) and name in instance_dict:
-        return instance_dict[name]
-    return _MISSING
+def _resolve_audio_encoder_compile_target(
+    processor: Any,
+) -> tuple[Any, str, Any, str]:
+    audio_tokenizer = getattr(processor, "audio_tokenizer", None)
+    if audio_tokenizer is None:
+        raise RuntimeError(
+            "MOSS-TTS Local audio encoder torch.compile is enabled, but the "
+            "processor has no audio_tokenizer"
+        )
 
+    for path in _AUDIO_ENCODER_COMPILE_TARGET_CANDIDATES:
+        owner = processor
+        for attr in path[:-1]:
+            owner = getattr(owner, attr, None)
+            if owner is None:
+                break
+        if owner is None:
+            continue
 
-def _restore_instance_attr(instance: Any, name: str, value: Any) -> None:
-    if value is _MISSING:
-        try:
-            delattr(instance, name)
-        except AttributeError:
-            pass
-        return
-    setattr(instance, name, value)
+        attr_name = path[-1]
+        target = getattr(owner, attr_name, None)
+        if callable(target):
+            return owner, attr_name, target, ".".join(path)
 
-
-def _bind_unwrapped_callable(callable_obj: Any, owner: Any) -> Any:
-    callable_obj = inspect.unwrap(callable_obj)
-    if inspect.ismethod(callable_obj):
-        callable_obj = callable_obj.__func__
-    if inspect.isfunction(callable_obj):
-        return types.MethodType(callable_obj, owner)
-    return callable_obj
+    candidates = ", ".join(
+        ".".join(path) for path in _AUDIO_ENCODER_COMPILE_TARGET_CANDIDATES
+    )
+    raise RuntimeError(
+        "MOSS-TTS Local audio encoder torch.compile is enabled, but no supported "
+        f"audio encoder target was found. Checked: {candidates}. If upstream "
+        "MOSS exposes the heavy encoder under another attribute, add it to the "
+        "candidate list after source/profiler verification."
+    )
 
 
 def _normalize_audio_encoder_warmup_seconds(
@@ -144,76 +157,51 @@ def _compile_moss_tts_local_audio_encoder(
     mode: str | None = "default",
     warmup_seconds: Sequence[float] | None = None,
 ) -> None:
-    audio_tokenizer = getattr(processor, "audio_tokenizer", None)
-    if audio_tokenizer is None:
-        raise RuntimeError(
-            "MOSS-TTS Local audio encoder torch.compile is enabled, but the "
-            "processor has no audio_tokenizer"
-        )
-    quantizer = getattr(audio_tokenizer, "quantizer", None)
-    if quantizer is None:
-        raise RuntimeError(
-            "MOSS-TTS Local audio encoder torch.compile is enabled, but "
-            "audio_tokenizer has no quantizer"
-        )
-    target_forward = getattr(quantizer, "forward", None)
-    if not callable(target_forward):
-        raise RuntimeError(
-            "MOSS-TTS Local audio encoder torch.compile is enabled, but "
-            "audio_tokenizer.quantizer.forward is not callable"
-        )
     if not hasattr(torch, "compile"):
         raise RuntimeError(
             "MOSS-TTS Local audio encoder torch.compile is enabled, but this "
             "PyTorch build does not provide torch.compile"
         )
 
-    if getattr(target_forward, "_sglang_omni_torch_compiled", False):
+    owner, attr_name, target, target_name = _resolve_audio_encoder_compile_target(
+        processor
+    )
+    if getattr(target, "_sglang_omni_torch_compiled", False):
         logger.info(
             "MOSS-TTS Local audio encoder already compiled at %s",
-            _AUDIO_ENCODER_COMPILE_TARGET,
+            target_name,
         )
         return
 
-    original_forward = _get_instance_attr(quantizer, "forward")
-    compile_target = _bind_unwrapped_callable(target_forward, quantizer)
-    # The quantizer call is the stable tensor-heavy boundary; keep it static to
-    # avoid the recompilation pressure seen when compiling broader encode paths.
-    compile_kwargs: dict[str, Any] = {"fullgraph": False, "dynamic": False}
+    compile_kwargs: dict[str, Any] = {"dynamic": True}
     if mode is not None:
         compile_kwargs["mode"] = mode
 
     try:
-        compiled_callable = torch.compile(compile_target, **compile_kwargs)
-
-        def compiled_forward(*args: Any, **kwargs: Any) -> Any:
-            with torch.inference_mode():
-                return compiled_callable(*args, **kwargs)
-
+        compiled_target = torch.compile(target, **compile_kwargs)
         try:
-            setattr(compiled_forward, "_sglang_omni_torch_compiled", True)
+            setattr(compiled_target, "_sglang_omni_torch_compiled", True)
         except Exception:
             pass
-        setattr(quantizer, "forward", compiled_forward)
+        setattr(owner, attr_name, compiled_target)
         _warm_up_moss_tts_local_audio_encoder(
             processor,
             warmup_seconds=_normalize_audio_encoder_warmup_seconds(warmup_seconds),
         )
     except Exception as exc:
-        _restore_instance_attr(quantizer, "forward", original_forward)
+        setattr(owner, attr_name, target)
         logger.exception(
             "MOSS-TTS Local audio encoder torch.compile failed for %s",
-            _AUDIO_ENCODER_COMPILE_TARGET,
+            target_name,
         )
         raise RuntimeError(
             "MOSS-TTS Local audio encoder torch.compile failed for "
-            f"{_AUDIO_ENCODER_COMPILE_TARGET}"
+            f"{target_name}"
         ) from exc
 
     logger.info(
-        "Compiled MOSS-TTS Local audio encoder at %s (mode=%s, fullgraph=False, "
-        "dynamic=False)",
-        _AUDIO_ENCODER_COMPILE_TARGET,
+        "Compiled MOSS-TTS Local audio encoder at %s (mode=%s, dynamic=True)",
+        target_name,
         mode,
     )
 

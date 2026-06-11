@@ -343,23 +343,29 @@ def test_load_processor_compiles_audio_encoder_when_enabled(monkeypatch):
     compile_calls = []
     warmup_paths = []
 
-    class _Quantizer(torch.nn.Module):
+    class _Encoder(torch.nn.Module):
         def __init__(self):
             super().__init__()
             self.calls = 0
-            self.compiled_calls = 0
-            self.grad_enabled = []
 
-        @torch.no_grad()
-        def forward(self, z, input_length, n_quantizers=None):
-            del input_length, n_quantizers
+        def forward(self, z):
             self.calls += 1
-            self.grad_enabled.append(torch.is_grad_enabled())
-            return z
+            return z + 1
+
+    class _CompiledEncoder(torch.nn.Module):
+        def __init__(self, target):
+            super().__init__()
+            self.target = target
+            self.calls = 0
+
+        def forward(self, *args, **kwargs):
+            self.calls += 1
+            return self.target(*args, **kwargs)
 
     class _AudioTokenizer:
         def __init__(self):
-            self.quantizer = _Quantizer()
+            self.acoustic_encoder = _Encoder()
+            self.quantizer = SimpleNamespace(forward=lambda z: z)
             self.eval_called = False
             self.device = None
 
@@ -384,11 +390,11 @@ def test_load_processor_compiles_audio_encoder_when_enabled(monkeypatch):
             for path in paths:
                 assert Path(path).is_file()
             z = torch.ones((1, 1), dtype=torch.float32)
-            length = torch.ones((1,), dtype=torch.long)
-            return [self.audio_tokenizer.quantizer(z, length, None)]
+            return [self.audio_tokenizer.acoustic_encoder(z)]
 
     processor = _Processor()
-    original_forward = processor.audio_tokenizer.quantizer.forward
+    original_encoder = processor.audio_tokenizer.acoustic_encoder
+    compiled_modules = []
 
     class _ProcessorCls:
         @classmethod
@@ -399,12 +405,9 @@ def test_load_processor_compiles_audio_encoder_when_enabled(monkeypatch):
 
     def fake_compile(target, **kwargs):
         compile_calls.append((target, kwargs))
-
-        def wrapped(*args, **kwargs):
-            processor.audio_tokenizer.quantizer.compiled_calls += 1
-            return target(*args, **kwargs)
-
-        return wrapped
+        compiled = _CompiledEncoder(target)
+        compiled_modules.append(compiled)
+        return compiled
 
     monkeypatch.setattr(stages, "_resolve_checkpoint", lambda _: "checkpoint")
     monkeypatch.setattr(stages, "_load_moss_processor_class", lambda _: _ProcessorCls)
@@ -426,17 +429,19 @@ def test_load_processor_compiles_audio_encoder_when_enabled(monkeypatch):
     assert processor.audio_tokenizer.device == "cuda:7"
     assert len(compile_calls) == 1
     target, kwargs = compile_calls[0]
-    assert getattr(target, "__name__", "") == "forward"
-    assert target is not original_forward
+    assert target is original_encoder
     assert kwargs == {
         "mode": "reduce-overhead",
-        "fullgraph": False,
-        "dynamic": False,
+        "dynamic": True,
     }
+    assert processor.audio_tokenizer.acoustic_encoder is compiled_modules[0]
+    assert getattr(
+        processor.audio_tokenizer.acoustic_encoder,
+        "_sglang_omni_torch_compiled",
+    )
     assert len(warmup_paths) == 2
-    assert processor.audio_tokenizer.quantizer.calls == 2
-    assert processor.audio_tokenizer.quantizer.compiled_calls == 2
-    assert processor.audio_tokenizer.quantizer.grad_enabled == [False, False]
+    assert original_encoder.calls == 2
+    assert compiled_modules[0].calls == 2
 
 
 def test_load_processor_leaves_audio_encoder_eager_by_default(monkeypatch):
@@ -470,13 +475,63 @@ def test_load_processor_leaves_audio_encoder_eager_by_default(monkeypatch):
     stages._load_moss_tts_local_processor("model", device="cuda:0")
 
 
-def test_audio_encoder_compile_reports_missing_target():
+def test_audio_encoder_compile_target_resolver_prefers_encoder_candidates():
     from types import SimpleNamespace
 
     from sglang_omni.models.moss_tts_local import stages
 
-    processor = SimpleNamespace(audio_tokenizer=SimpleNamespace())
-    with pytest.raises(RuntimeError, match="has no quantizer"):
+    acoustic_encoder = torch.nn.Linear(1, 1)
+    plain_encoder = torch.nn.Linear(1, 1)
+    processor = SimpleNamespace(
+        audio_tokenizer=SimpleNamespace(
+            acoustic_encoder=acoustic_encoder,
+            encoder=plain_encoder,
+        )
+    )
+
+    owner, attr_name, target, target_name = (
+        stages._resolve_audio_encoder_compile_target(processor)
+    )
+
+    assert owner is processor.audio_tokenizer
+    assert attr_name == "acoustic_encoder"
+    assert target is acoustic_encoder
+    assert target_name == "audio_tokenizer.acoustic_encoder"
+
+
+def test_audio_encoder_compile_target_resolver_falls_back_to_model_encoder():
+    from types import SimpleNamespace
+
+    from sglang_omni.models.moss_tts_local import stages
+
+    model_encoder = torch.nn.Linear(1, 1)
+    processor = SimpleNamespace(
+        audio_tokenizer=SimpleNamespace(
+            model=SimpleNamespace(encoder=model_encoder),
+        )
+    )
+
+    owner, attr_name, target, target_name = (
+        stages._resolve_audio_encoder_compile_target(processor)
+    )
+
+    assert owner is processor.audio_tokenizer.model
+    assert attr_name == "encoder"
+    assert target is model_encoder
+    assert target_name == "audio_tokenizer.model.encoder"
+
+
+def test_audio_encoder_compile_reports_missing_target_without_quantizer_fallback():
+    from types import SimpleNamespace
+
+    from sglang_omni.models.moss_tts_local import stages
+
+    processor = SimpleNamespace(
+        audio_tokenizer=SimpleNamespace(
+            quantizer=SimpleNamespace(forward=lambda z: z),
+        )
+    )
+    with pytest.raises(RuntimeError, match="no supported audio encoder target"):
         stages._compile_moss_tts_local_audio_encoder(processor)
 
 
@@ -491,45 +546,43 @@ def test_audio_encoder_warmup_seconds_validation():
         stages._normalize_audio_encoder_warmup_seconds([0])
 
 
-def test_audio_encoder_compile_failure_restores_forward(monkeypatch):
+def test_audio_encoder_compile_failure_restores_encoder(monkeypatch):
     from types import SimpleNamespace
 
     from sglang_omni.models.moss_tts_local import stages
 
-    class _Quantizer(torch.nn.Module):
-        @torch.no_grad()
-        def forward(self, z, input_length, n_quantizers=None):
-            del input_length, n_quantizers
+    class _Encoder(torch.nn.Module):
+        def forward(self, z):
             return z
 
     class _Processor:
         def __init__(self):
-            self.audio_tokenizer = SimpleNamespace(quantizer=_Quantizer())
+            self.audio_tokenizer = SimpleNamespace(encoder=_Encoder())
             self.model_config = SimpleNamespace(sampling_rate=10)
 
         def encode_audios_from_path(self, paths):
             del paths
             z = torch.ones((1, 1), dtype=torch.float32)
-            length = torch.ones((1,), dtype=torch.long)
-            return [self.audio_tokenizer.quantizer(z, length, None)]
+            return [self.audio_tokenizer.encoder(z)]
 
     processor = _Processor()
+    original_encoder = processor.audio_tokenizer.encoder
 
-    def fake_compile(target, **kwargs):
-        del target, kwargs
-
-        def wrapped(*args, **kwargs):
+    class _FailingEncoder(torch.nn.Module):
+        def forward(self, *args, **kwargs):
             del args, kwargs
             raise RuntimeError("warmup failed")
 
-        return wrapped
+    def fake_compile(target, **kwargs):
+        del target, kwargs
+        return _FailingEncoder()
 
     monkeypatch.setattr(stages.torch, "compile", fake_compile)
 
     with pytest.raises(RuntimeError, match="torch.compile failed"):
         stages._compile_moss_tts_local_audio_encoder(processor)
 
-    assert "forward" not in processor.audio_tokenizer.quantizer.__dict__
+    assert processor.audio_tokenizer.encoder is original_encoder
     out = processor.encode_audios_from_path(["still-eager.wav"])[0]
     torch.testing.assert_close(out, torch.ones((1, 1), dtype=torch.float32))
 
