@@ -771,6 +771,158 @@ def test_batched_reference_encoder_malformed_batch_output_falls_back_per_item():
     assert [4] in calls
 
 
+def test_batched_reference_encoder_without_wav_api_uses_batched_path_encode():
+    import threading
+
+    from sglang_omni.models.moss_tts_local.stages import _BatchedReferenceEncoder
+
+    calls = []
+    load_calls = []
+    markers = {"same.wav": 1, "other.wav": 2}
+
+    class _FakeCodecProcessor:
+        def encode_audios_from_path(self, paths):
+            paths = list(paths)
+            calls.append(paths)
+            return [
+                torch.full((2, N_VQ), markers[path], dtype=torch.long)
+                for path in paths
+            ]
+
+    encoder = _BatchedReferenceEncoder(
+        _FakeCodecProcessor(), max_batch_size=3, max_batch_wait_ms=1000
+    )
+
+    def load_reference(path, target_sr):
+        load_calls.append((path, target_sr))
+        raise AssertionError("path fallback must not load waveforms")
+
+    encoder._load_reference_wav = load_reference
+    paths = ["same.wav", "other.wav", "same.wav"]
+    results = [None] * len(paths)
+    barrier = threading.Barrier(len(paths))
+
+    def run(index, path):
+        barrier.wait(timeout=10)
+        results[index] = encoder.encode(path)
+
+    threads = [threading.Thread(target=run, args=item) for item in enumerate(paths)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=10)
+
+    assert load_calls == []
+    assert len(calls) == 1
+    assert set(calls[0]) == {"same.wav", "other.wav"}
+    assert len(calls[0]) == 2
+    assert [int(result[0, 0]) for result in results] == [1, 2, 1]
+
+
+def test_batched_reference_encoder_load_failure_falls_back_to_batched_path_encode():
+    import threading
+
+    from sglang_omni.models.moss_tts_local.stages import _BatchedReferenceEncoder
+
+    path_calls = []
+    wav_calls = []
+    markers = {"first.wav": 11, "second.wav": 22}
+
+    class _FakeCodecProcessor:
+        model_config = _FakeMossAudioConfig()
+
+        def encode_audios_from_wav(self, wavs, sampling_rate):
+            wav_calls.append(list(wavs))
+            raise AssertionError("load failure must bypass waveform encode")
+
+        def encode_audios_from_path(self, paths):
+            paths = list(paths)
+            path_calls.append(paths)
+            return [
+                torch.full((2, N_VQ), markers[path], dtype=torch.long)
+                for path in paths
+            ]
+
+    encoder = _BatchedReferenceEncoder(
+        _FakeCodecProcessor(), max_batch_size=2, max_batch_wait_ms=1000
+    )
+
+    def load_reference(path, target_sr):
+        raise RuntimeError("cannot load")
+
+    encoder._load_reference_wav = load_reference
+    paths = ["first.wav", "second.wav"]
+    results = [None] * len(paths)
+    barrier = threading.Barrier(len(paths))
+
+    def run(index, path):
+        barrier.wait(timeout=10)
+        results[index] = encoder.encode(path)
+
+    threads = [threading.Thread(target=run, args=item) for item in enumerate(paths)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=10)
+
+    assert wav_calls == []
+    assert len(path_calls) == 1
+    assert set(path_calls[0]) == {"first.wav", "second.wav"}
+    assert [int(result[0, 0]) for result in results] == [11, 22]
+
+
+def test_batched_reference_encoder_wav_failure_falls_back_to_path_encode():
+    import threading
+
+    from sglang_omni.models.moss_tts_local.stages import _BatchedReferenceEncoder
+
+    path_calls = []
+    wav_calls = []
+    markers = {"first.wav": 11, "second.wav": 22}
+
+    class _FakeCodecProcessor:
+        model_config = _FakeMossAudioConfig()
+
+        def encode_audios_from_wav(self, wavs, sampling_rate):
+            wav_calls.append([int(wav[0, 0].item()) for wav in wavs])
+            raise NotImplementedError("wav API unavailable")
+
+        def encode_audios_from_path(self, paths):
+            paths = list(paths)
+            path_calls.append(paths)
+            return [
+                torch.full((2, N_VQ), markers[path], dtype=torch.long)
+                for path in paths
+            ]
+
+    encoder = _BatchedReferenceEncoder(
+        _FakeCodecProcessor(), max_batch_size=2, max_batch_wait_ms=1000
+    )
+    wavs = {
+        "first.wav": _fake_reference_wav(8, 11),
+        "second.wav": _fake_reference_wav(8, 22),
+    }
+    encoder._load_reference_wav = lambda path, target_sr: wavs[path]
+    paths = ["first.wav", "second.wav"]
+    results = [None] * len(paths)
+    barrier = threading.Barrier(len(paths))
+
+    def run(index, path):
+        barrier.wait(timeout=10)
+        results[index] = encoder.encode(path)
+
+    threads = [threading.Thread(target=run, args=item) for item in enumerate(paths)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=10)
+
+    assert any(call == [11, 22] or call == [22, 11] for call in wav_calls)
+    assert all(len(call) == 1 for call in path_calls)
+    assert {call[0] for call in path_calls} == {"first.wav", "second.wav"}
+    assert [int(result[0, 0]) for result in results] == [11, 22]
+
+
 def test_build_processor_message_uses_batched_encoder_for_file_paths():
     from sglang_omni.models.moss_tts_local.request_builders import (
         _build_processor_message,
