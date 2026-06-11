@@ -178,7 +178,7 @@ def test_pipeline_stage_wiring():
     assert preprocessing_args["device"] == "cuda:1"
     assert preprocessing_args["enable_audio_encoder_torch_compile"] is True
     assert preprocessing_args["audio_encoder_torch_compile_mode"] == "default"
-    assert preprocessing_args["audio_encoder_torch_compile_warmup_seconds"] == [1.0]
+    assert "audio_encoder_torch_compile_warmup_seconds" not in preprocessing_args
     assert "audio_encoder_torch_compile_dynamic" not in preprocessing_args
     assert stages["tts_engine"].process == "pipeline"
     assert stages["tts_engine"].gpu == 0
@@ -199,8 +199,8 @@ def test_pipeline_stage_wiring():
     assert colocated_preprocessing_args["device"] == "cuda:0"
     assert colocated_preprocessing_args["enable_audio_encoder_torch_compile"] is True
     assert (
-        colocated_preprocessing_args["audio_encoder_torch_compile_warmup_seconds"]
-        == [1.0]
+        "audio_encoder_torch_compile_warmup_seconds"
+        not in colocated_preprocessing_args
     )
     assert colocated_stages["vocoder"].factory_args["device"] == "cuda:0"
 
@@ -521,6 +521,21 @@ def test_audio_encoder_compile_target_resolver_falls_back_to_model_encoder():
     assert target_name == "audio_tokenizer.model.encoder"
 
 
+def test_audio_encoder_compile_target_resolver_ignores_encoder_methods():
+    from types import SimpleNamespace
+
+    from sglang_omni.models.moss_tts_local import stages
+
+    class _Tokenizer:
+        def encoder(self, x):
+            return x
+
+    processor = SimpleNamespace(audio_tokenizer=_Tokenizer())
+
+    with pytest.raises(RuntimeError, match="no supported audio encoder module"):
+        stages._resolve_audio_encoder_compile_target(processor)
+
+
 def test_audio_encoder_compile_reports_missing_target_without_quantizer_fallback():
     from types import SimpleNamespace
 
@@ -531,14 +546,16 @@ def test_audio_encoder_compile_reports_missing_target_without_quantizer_fallback
             quantizer=SimpleNamespace(forward=lambda z: z),
         )
     )
-    with pytest.raises(RuntimeError, match="no supported audio encoder target"):
+    with pytest.raises(RuntimeError, match="no supported audio encoder module"):
         stages._compile_moss_tts_local_audio_encoder(processor)
 
 
 def test_audio_encoder_warmup_seconds_validation():
     from sglang_omni.models.moss_tts_local import stages
 
-    assert stages._normalize_audio_encoder_warmup_seconds(None) == (1.0,)
+    assert stages._normalize_audio_encoder_warmup_seconds(
+        None
+    ) == stages._DEFAULT_AUDIO_ENCODER_WARMUP_SECONDS
     assert stages._normalize_audio_encoder_warmup_seconds([1, 3.0]) == (1.0, 3.0)
     with pytest.raises(RuntimeError, match="warm-up is empty"):
         stages._normalize_audio_encoder_warmup_seconds([])

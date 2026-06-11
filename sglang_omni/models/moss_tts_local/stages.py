@@ -57,6 +57,9 @@ _AUDIO_ENCODER_COMPILE_TARGET_CANDIDATES: tuple[tuple[str, ...], ...] = (
     ("audio_tokenizer", "model", "acoustic_encoder"),
     ("audio_tokenizer", "model", "encoder"),
 )
+# Match Higgs: run one second of silence through the public encode path so the
+# first torch.compile happens during startup instead of on the first request.
+_DEFAULT_AUDIO_ENCODER_WARMUP_SECONDS = (1.0,)
 
 # NOTE: the preprocessing and vocoder stages each load their own processor
 # (and thus their own ~4.3 GB bf16 codec instance). The codec's chunked decode
@@ -122,7 +125,7 @@ def _resolve_audio_encoder_compile_target(
 
         attr_name = path[-1]
         target = getattr(owner, attr_name, None)
-        if callable(target):
+        if isinstance(target, torch.nn.Module):
             return owner, attr_name, target, ".".join(path)
 
     candidates = ", ".join(
@@ -130,7 +133,7 @@ def _resolve_audio_encoder_compile_target(
     )
     raise RuntimeError(
         "MOSS-TTS Local audio encoder torch.compile is enabled, but no supported "
-        f"audio encoder target was found. Checked: {candidates}. If upstream "
+        f"audio encoder module was found. Checked: {candidates}. If upstream "
         "MOSS exposes the heavy encoder under another attribute, add it to the "
         "candidate list after source/profiler verification."
     )
@@ -139,7 +142,11 @@ def _resolve_audio_encoder_compile_target(
 def _normalize_audio_encoder_warmup_seconds(
     warmup_seconds: Sequence[float] | None,
 ) -> tuple[float, ...]:
-    source = (1.0,) if warmup_seconds is None else warmup_seconds
+    source = (
+        _DEFAULT_AUDIO_ENCODER_WARMUP_SECONDS
+        if warmup_seconds is None
+        else warmup_seconds
+    )
     values = tuple(float(value) for value in source)
     if not values:
         raise RuntimeError("MOSS-TTS Local audio encoder warm-up is empty")

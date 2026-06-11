@@ -27,7 +27,6 @@ def _stages(*, codec_device: str) -> list[StageConfig]:
                 # encoder-like module names and compiled with dynamic shapes.
                 "enable_audio_encoder_torch_compile": True,
                 "audio_encoder_torch_compile_mode": "default",
-                "audio_encoder_torch_compile_warmup_seconds": [1.0],
             },
             gpu=0,
             next="tts_engine",
