@@ -173,6 +173,9 @@ def _compile_moss_tts_local_audio_encoder(
     owner, attr_name, target, target_name = _resolve_audio_encoder_compile_target(
         processor
     )
+    normalized_warmup_seconds = _normalize_audio_encoder_warmup_seconds(
+        warmup_seconds
+    )
     if getattr(target, "_sglang_omni_torch_compiled", False):
         logger.info(
             "MOSS-TTS Local audio encoder already compiled at %s",
@@ -184,19 +187,43 @@ def _compile_moss_tts_local_audio_encoder(
     if mode is not None:
         compile_kwargs["mode"] = mode
 
+    original_children: list[torch.nn.Module] | None = None
     try:
-        compiled_target = torch.compile(target, **compile_kwargs)
-        try:
-            setattr(compiled_target, "_sglang_omni_torch_compiled", True)
-        except Exception:
-            pass
-        setattr(owner, attr_name, compiled_target)
+        if isinstance(target, torch.nn.ModuleList):
+            original_children = list(target)
+            for index, child in enumerate(original_children):
+                compiled_child = torch.compile(child, **compile_kwargs)
+                try:
+                    setattr(compiled_child, "_sglang_omni_torch_compiled", True)
+                except Exception:
+                    pass
+                target[index] = compiled_child
+            try:
+                setattr(target, "_sglang_omni_torch_compiled", True)
+            except Exception:
+                pass
+        else:
+            compiled_target = torch.compile(target, **compile_kwargs)
+            try:
+                setattr(compiled_target, "_sglang_omni_torch_compiled", True)
+            except Exception:
+                pass
+            setattr(owner, attr_name, compiled_target)
         _warm_up_moss_tts_local_audio_encoder(
             processor,
-            warmup_seconds=_normalize_audio_encoder_warmup_seconds(warmup_seconds),
+            warmup_seconds=normalized_warmup_seconds,
         )
     except Exception as exc:
-        setattr(owner, attr_name, target)
+        if isinstance(target, torch.nn.ModuleList):
+            if original_children is not None:
+                for index, child in enumerate(original_children):
+                    target[index] = child
+            try:
+                delattr(target, "_sglang_omni_torch_compiled")
+            except AttributeError:
+                pass
+        else:
+            setattr(owner, attr_name, target)
         logger.exception(
             "MOSS-TTS Local audio encoder torch.compile failed for %s",
             target_name,

@@ -521,6 +521,182 @@ def test_audio_encoder_compile_target_resolver_falls_back_to_model_encoder():
     assert target_name == "audio_tokenizer.model.encoder"
 
 
+def test_audio_encoder_compile_preserves_module_list_iteration(monkeypatch):
+    from types import SimpleNamespace
+
+    from sglang_omni.models.moss_tts_local import stages
+
+    compile_calls = []
+    warmup_calls = 0
+
+    class _EncoderBlock(torch.nn.Module):
+        def __init__(self, offset: float):
+            super().__init__()
+            self.offset = offset
+
+        def forward(self, z, lengths):
+            return z + self.offset, lengths
+
+    class _CompiledBlock(torch.nn.Module):
+        def __init__(self, target):
+            super().__init__()
+            self.target = target
+            self.calls = 0
+
+        def forward(self, *args, **kwargs):
+            self.calls += 1
+            return self.target(*args, **kwargs)
+
+    class _Processor:
+        def __init__(self):
+            self.audio_tokenizer = SimpleNamespace(
+                encoder=torch.nn.ModuleList(
+                    [
+                        _EncoderBlock(1.0),
+                        _EncoderBlock(2.0),
+                    ]
+                )
+            )
+            self.model_config = SimpleNamespace(sampling_rate=10)
+
+        def encode_audios_from_path(self, paths):
+            nonlocal warmup_calls
+            warmup_calls += len(paths)
+            z = torch.zeros((1, 1), dtype=torch.float32)
+            lengths = torch.ones((1,), dtype=torch.long)
+            for encoder_module in self.audio_tokenizer.encoder:
+                z, lengths = encoder_module(z, lengths)
+            return [z]
+
+    processor = _Processor()
+    original_children = list(processor.audio_tokenizer.encoder)
+
+    def fake_compile(target, **kwargs):
+        assert not isinstance(target, torch.nn.ModuleList)
+        compile_calls.append((target, kwargs))
+        return _CompiledBlock(target)
+
+    monkeypatch.setattr(stages.torch, "compile", fake_compile)
+
+    stages._compile_moss_tts_local_audio_encoder(
+        processor,
+        mode="reduce-overhead",
+        warmup_seconds=[0.1],
+    )
+
+    encoder = processor.audio_tokenizer.encoder
+    assert isinstance(encoder, torch.nn.ModuleList)
+    assert getattr(encoder, "_sglang_omni_torch_compiled")
+    assert len(compile_calls) == 2
+    assert [target for target, _ in compile_calls] == original_children
+    assert all(
+        kwargs == {"mode": "reduce-overhead", "dynamic": True}
+        for _, kwargs in compile_calls
+    )
+    assert all(isinstance(child, _CompiledBlock) for child in encoder)
+    assert warmup_calls == 1
+    torch.testing.assert_close(
+        processor.encode_audios_from_path(["still-iterable.wav"])[0],
+        torch.full((1, 1), 3.0),
+    )
+
+
+def test_audio_encoder_compile_validates_warmup_before_compile(monkeypatch):
+    from types import SimpleNamespace
+
+    from sglang_omni.models.moss_tts_local import stages
+
+    processor = SimpleNamespace(
+        audio_tokenizer=SimpleNamespace(encoder=torch.nn.Linear(1, 1))
+    )
+    original_encoder = processor.audio_tokenizer.encoder
+    compile_calls = []
+
+    def fake_compile(target, **kwargs):
+        compile_calls.append((target, kwargs))
+        raise AssertionError("torch.compile should not run")
+
+    monkeypatch.setattr(stages.torch, "compile", fake_compile)
+
+    with pytest.raises(RuntimeError, match="warm-up is empty"):
+        stages._compile_moss_tts_local_audio_encoder(
+            processor,
+            warmup_seconds=[],
+        )
+
+    assert compile_calls == []
+    assert processor.audio_tokenizer.encoder is original_encoder
+
+
+def test_audio_encoder_compile_module_list_failure_restores_children(monkeypatch):
+    from types import SimpleNamespace
+
+    from sglang_omni.models.moss_tts_local import stages
+
+    class _EncoderBlock(torch.nn.Module):
+        def __init__(self, offset: float):
+            super().__init__()
+            self.offset = offset
+
+        def forward(self, z, lengths):
+            return z + self.offset, lengths
+
+    class _CompiledBlock(torch.nn.Module):
+        def __init__(self, target):
+            super().__init__()
+            self.target = target
+
+        def forward(self, *args, **kwargs):
+            return self.target(*args, **kwargs)
+
+    class _Processor:
+        def __init__(self):
+            self.audio_tokenizer = SimpleNamespace(
+                encoder=torch.nn.ModuleList(
+                    [
+                        _EncoderBlock(1.0),
+                        _EncoderBlock(2.0),
+                    ]
+                )
+            )
+            self.model_config = SimpleNamespace(sampling_rate=10)
+
+        def encode_audios_from_path(self, paths):
+            del paths
+            z = torch.zeros((1, 1), dtype=torch.float32)
+            lengths = torch.ones((1,), dtype=torch.long)
+            for encoder_module in self.audio_tokenizer.encoder:
+                z, lengths = encoder_module(z, lengths)
+            return [z]
+
+    processor = _Processor()
+    encoder = processor.audio_tokenizer.encoder
+    original_children = list(encoder)
+    compile_calls = []
+
+    def fake_compile(target, **kwargs):
+        del kwargs
+        compile_calls.append(target)
+        if len(compile_calls) == 2:
+            raise RuntimeError("compile failed")
+        return _CompiledBlock(target)
+
+    monkeypatch.setattr(stages.torch, "compile", fake_compile)
+
+    with pytest.raises(RuntimeError, match="torch.compile failed"):
+        stages._compile_moss_tts_local_audio_encoder(
+            processor,
+            warmup_seconds=[0.1],
+        )
+
+    assert list(encoder) == original_children
+    assert not getattr(encoder, "_sglang_omni_torch_compiled", False)
+    torch.testing.assert_close(
+        processor.encode_audios_from_path(["still-eager.wav"])[0],
+        torch.full((1, 1), 3.0),
+    )
+
+
 def test_audio_encoder_compile_target_resolver_ignores_encoder_methods():
     from types import SimpleNamespace
 
