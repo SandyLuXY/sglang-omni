@@ -23,10 +23,7 @@ def _stages(*, codec_device: str) -> list[StageConfig]:
                 "ref_audio_cache": True,
                 "ref_audio_cache_max_items": 256,
                 "ref_audio_cache_max_bytes": 64 * 1024 * 1024,
-                # The upstream remote-code codec target is resolved from
-                # encoder-like module names and compiled with dynamic shapes.
-                "enable_audio_encoder_torch_compile": True,
-                "audio_encoder_torch_compile_mode": "default",
+                "enable_audio_encoder_torch_compile": False,
             },
             gpu=0,
             next="tts_engine",

@@ -176,8 +176,8 @@ def test_pipeline_stage_wiring():
     assert stages["preprocessing"].gpu == 0
     preprocessing_args = stages["preprocessing"].factory_args
     assert preprocessing_args["device"] == "cuda:1"
-    assert preprocessing_args["enable_audio_encoder_torch_compile"] is True
-    assert preprocessing_args["audio_encoder_torch_compile_mode"] == "default"
+    assert preprocessing_args["enable_audio_encoder_torch_compile"] is False
+    assert "audio_encoder_torch_compile_mode" not in preprocessing_args
     assert "audio_encoder_torch_compile_warmup_seconds" not in preprocessing_args
     assert "audio_encoder_torch_compile_dynamic" not in preprocessing_args
     assert stages["tts_engine"].process == "pipeline"
@@ -197,10 +197,9 @@ def test_pipeline_stage_wiring():
     colocated_stages = {stage.name: stage for stage in colocated.stages}
     colocated_preprocessing_args = colocated_stages["preprocessing"].factory_args
     assert colocated_preprocessing_args["device"] == "cuda:0"
-    assert colocated_preprocessing_args["enable_audio_encoder_torch_compile"] is True
+    assert colocated_preprocessing_args["enable_audio_encoder_torch_compile"] is False
     assert (
-        "audio_encoder_torch_compile_warmup_seconds"
-        not in colocated_preprocessing_args
+        "audio_encoder_torch_compile_warmup_seconds" not in colocated_preprocessing_args
     )
     assert colocated_stages["vocoder"].factory_args["device"] == "cuda:0"
 
@@ -346,11 +345,14 @@ def test_load_processor_compiles_audio_encoder_when_enabled(monkeypatch):
     class _Encoder(torch.nn.Module):
         def __init__(self):
             super().__init__()
+            self.input_proj = torch.nn.Identity()
+            self.transformer = torch.nn.Identity()
+            self.output_proj = torch.nn.Identity()
             self.calls = 0
 
-        def forward(self, z):
+        def forward(self, z, lengths):
             self.calls += 1
-            return z + 1
+            return z + 1, lengths
 
     class _CompiledEncoder(torch.nn.Module):
         def __init__(self, target):
@@ -363,8 +365,12 @@ def test_load_processor_compiles_audio_encoder_when_enabled(monkeypatch):
             return self.target(*args, **kwargs)
 
     class _AudioTokenizer:
+        sampling_rate = 10
+        downsample_rate = 1
+        number_channels = 1
+
         def __init__(self):
-            self.acoustic_encoder = _Encoder()
+            self.encoder = torch.nn.ModuleList([_Encoder()])
             self.quantizer = SimpleNamespace(forward=lambda z: z)
             self.eval_called = False
             self.device = None
@@ -376,6 +382,22 @@ def test_load_processor_compiles_audio_encoder_when_enabled(monkeypatch):
         def to(self, device):
             self.device = device
             return self
+
+        def _prepare_waveform_batch(self, wav_list):
+            lengths = torch.ones(len(wav_list), dtype=torch.long)
+            return torch.zeros(len(wav_list), 1, 1), lengths
+
+        def _encode_frame(self, input_values, input_lengths, n_quantizers=None):
+            del n_quantizers
+            encoded = torch.ones(input_values.shape[0], 1)
+            lengths = input_lengths.clone()
+            for encoder_module in self.encoder:
+                encoded, lengths = encoder_module(encoded, lengths)
+            return SimpleNamespace(
+                audio_codes=encoded.view(1, input_values.shape[0], 1),
+                audio_codes_lengths=lengths,
+                encoder_hidden_states=encoded.view(input_values.shape[0], 1, 1),
+            )
 
     class _Processor:
         def __init__(self):
@@ -389,11 +411,14 @@ def test_load_processor_compiles_audio_encoder_when_enabled(monkeypatch):
             warmup_paths.extend(paths)
             for path in paths:
                 assert Path(path).is_file()
-            z = torch.ones((1, 1), dtype=torch.float32)
-            return [self.audio_tokenizer.acoustic_encoder(z)]
+            input_values, input_lengths = self.audio_tokenizer._prepare_waveform_batch(
+                [torch.zeros(1) for _ in paths]
+            )
+            result = self.audio_tokenizer._encode_frame(input_values, input_lengths)
+            return [result.encoder_hidden_states[index] for index in range(len(paths))]
 
     processor = _Processor()
-    original_encoder = processor.audio_tokenizer.acoustic_encoder
+    original_encoder = processor.audio_tokenizer.encoder[0]
     compiled_modules = []
 
     class _ProcessorCls:
@@ -434,14 +459,16 @@ def test_load_processor_compiles_audio_encoder_when_enabled(monkeypatch):
         "mode": "reduce-overhead",
         "dynamic": True,
     }
-    assert processor.audio_tokenizer.acoustic_encoder is compiled_modules[0]
+    assert processor.audio_tokenizer.encoder[0] is compiled_modules[0]
     assert getattr(
-        processor.audio_tokenizer.acoustic_encoder,
+        processor.audio_tokenizer.encoder[0],
         "_sglang_omni_torch_compiled",
     )
-    assert len(warmup_paths) == 2
-    assert original_encoder.calls == 2
-    assert compiled_modules[0].calls == 2
+    expected_warmup_items = sum(stages._DEFAULT_AUDIO_ENCODER_WARMUP_BATCH_SIZES) * 2
+    expected_warmup_calls = len(stages._DEFAULT_AUDIO_ENCODER_WARMUP_BATCH_SIZES) * 2
+    assert len(warmup_paths) == expected_warmup_items
+    assert original_encoder.calls == expected_warmup_calls
+    assert compiled_modules[0].calls == expected_warmup_calls
 
 
 def test_load_processor_leaves_audio_encoder_eager_by_default(monkeypatch):
@@ -475,50 +502,107 @@ def test_load_processor_leaves_audio_encoder_eager_by_default(monkeypatch):
     stages._load_moss_tts_local_processor("model", device="cuda:0")
 
 
-def test_audio_encoder_compile_target_resolver_prefers_encoder_candidates():
+def test_audio_encoder_compile_target_resolver_skips_plain_encoder_candidates():
     from types import SimpleNamespace
 
     from sglang_omni.models.moss_tts_local import stages
 
-    acoustic_encoder = torch.nn.Linear(1, 1)
-    plain_encoder = torch.nn.Linear(1, 1)
+    class _ProjectedTransformer(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.input_proj = torch.nn.Identity()
+            self.transformer = torch.nn.Identity()
+            self.output_proj = torch.nn.Identity()
+
+        def forward(self, z, lengths):
+            return z, lengths
+
+    projected_encoder = _ProjectedTransformer()
     processor = SimpleNamespace(
         audio_tokenizer=SimpleNamespace(
-            acoustic_encoder=acoustic_encoder,
-            encoder=plain_encoder,
+            encoder=torch.nn.ModuleList(
+                [
+                    torch.nn.Linear(1, 1),
+                    projected_encoder,
+                ]
+            ),
         )
     )
+
+    owner, attr_name, target, target_name = (
+        stages._resolve_audio_encoder_compile_target(processor)
+    )
+
+    assert owner is processor.audio_tokenizer.encoder
+    assert attr_name == "1"
+    assert target is projected_encoder
+    assert target_name == "audio_tokenizer.encoder.1"
+
+
+def test_audio_encoder_compile_target_resolver_selects_single_projected_encoder():
+    from types import SimpleNamespace
+
+    from sglang_omni.models.moss_tts_local import stages
+
+    class _ProjectedTransformer(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.input_proj = torch.nn.Identity()
+            self.transformer = torch.nn.Identity()
+            self.output_proj = torch.nn.Identity()
+
+        def forward(self, z, lengths):
+            return z, lengths
+
+    model_encoder = _ProjectedTransformer()
+    processor = SimpleNamespace(audio_tokenizer=SimpleNamespace(encoder=model_encoder))
 
     owner, attr_name, target, target_name = (
         stages._resolve_audio_encoder_compile_target(processor)
     )
 
     assert owner is processor.audio_tokenizer
-    assert attr_name == "acoustic_encoder"
-    assert target is acoustic_encoder
-    assert target_name == "audio_tokenizer.acoustic_encoder"
+    assert attr_name == "encoder"
+    assert target is model_encoder
+    assert target_name == "audio_tokenizer.encoder"
 
 
-def test_audio_encoder_compile_target_resolver_falls_back_to_model_encoder():
+def test_audio_encoder_compile_target_resolver_selects_projected_module_list_children():
     from types import SimpleNamespace
 
     from sglang_omni.models.moss_tts_local import stages
 
-    model_encoder = torch.nn.Linear(1, 1)
+    class _ProjectedTransformer(torch.nn.Module):
+        def __init__(self, params: int):
+            super().__init__()
+            self.input_proj = torch.nn.Identity()
+            self.transformer = torch.nn.Identity()
+            self.output_proj = torch.nn.Identity()
+            self.weight = torch.nn.Parameter(torch.zeros(params))
+
+        def forward(self, z, lengths):
+            return z, lengths
+
+    small = _ProjectedTransformer(2)
+    big = _ProjectedTransformer(5)
     processor = SimpleNamespace(
         audio_tokenizer=SimpleNamespace(
-            model=SimpleNamespace(encoder=model_encoder),
+            encoder=torch.nn.ModuleList(
+                [
+                    torch.nn.Linear(1, 1),
+                    small,
+                    big,
+                ]
+            )
         )
     )
 
-    owner, attr_name, target, target_name = (
-        stages._resolve_audio_encoder_compile_target(processor)
-    )
+    targets = stages._resolve_audio_encoder_compile_targets(processor)
 
-    assert owner is processor.audio_tokenizer.model
-    assert attr_name == "encoder"
-    assert target is model_encoder
-    assert target_name == "audio_tokenizer.model.encoder"
+    assert targets == [
+        (processor.audio_tokenizer.encoder, "1", small, "audio_tokenizer.encoder.1"),
+        (processor.audio_tokenizer.encoder, "2", big, "audio_tokenizer.encoder.2"),
+    ]
 
 
 def test_audio_encoder_compile_preserves_module_list_iteration(monkeypatch):
@@ -530,12 +614,46 @@ def test_audio_encoder_compile_preserves_module_list_iteration(monkeypatch):
     warmup_calls = 0
 
     class _EncoderBlock(torch.nn.Module):
-        def __init__(self, offset: float):
+        def __init__(self, offset: float, *, projected: bool = True):
             super().__init__()
             self.offset = offset
+            if projected:
+                self.input_proj = torch.nn.Identity()
+                self.transformer = torch.nn.Identity()
+                self.output_proj = torch.nn.Identity()
 
         def forward(self, z, lengths):
             return z + self.offset, lengths
+
+    class _AudioTokenizer:
+        sampling_rate = 10
+        downsample_rate = 1
+        number_channels = 1
+
+        def __init__(self):
+            self.encoder = torch.nn.ModuleList(
+                [
+                    _EncoderBlock(1.0, projected=False),
+                    _EncoderBlock(2.0),
+                    _EncoderBlock(4.0),
+                ]
+            )
+
+        def _prepare_waveform_batch(self, wav_list):
+            lengths = torch.ones(len(wav_list), dtype=torch.long)
+            return torch.zeros(len(wav_list), 1, 1), lengths
+
+        def _encode_frame(self, input_values, input_lengths, n_quantizers=None):
+            del n_quantizers
+            z = torch.zeros((input_values.shape[0], 1), dtype=torch.float32)
+            lengths = input_lengths.clone()
+            for encoder_module in self.encoder:
+                z, lengths = encoder_module(z, lengths)
+            return SimpleNamespace(
+                audio_codes=z.view(1, input_values.shape[0], 1),
+                audio_codes_lengths=lengths,
+                encoder_hidden_states=z.view(input_values.shape[0], 1, 1),
+            )
 
     class _CompiledBlock(torch.nn.Module):
         def __init__(self, target):
@@ -549,24 +667,17 @@ def test_audio_encoder_compile_preserves_module_list_iteration(monkeypatch):
 
     class _Processor:
         def __init__(self):
-            self.audio_tokenizer = SimpleNamespace(
-                encoder=torch.nn.ModuleList(
-                    [
-                        _EncoderBlock(1.0),
-                        _EncoderBlock(2.0),
-                    ]
-                )
-            )
+            self.audio_tokenizer = _AudioTokenizer()
             self.model_config = SimpleNamespace(sampling_rate=10)
 
         def encode_audios_from_path(self, paths):
             nonlocal warmup_calls
             warmup_calls += len(paths)
-            z = torch.zeros((1, 1), dtype=torch.float32)
-            lengths = torch.ones((1,), dtype=torch.long)
-            for encoder_module in self.audio_tokenizer.encoder:
-                z, lengths = encoder_module(z, lengths)
-            return [z]
+            input_values, input_lengths = self.audio_tokenizer._prepare_waveform_batch(
+                [torch.zeros(1) for _ in paths]
+            )
+            result = self.audio_tokenizer._encode_frame(input_values, input_lengths)
+            return [result.encoder_hidden_states[index] for index in range(len(paths))]
 
     processor = _Processor()
     original_children = list(processor.audio_tokenizer.encoder)
@@ -586,19 +697,98 @@ def test_audio_encoder_compile_preserves_module_list_iteration(monkeypatch):
 
     encoder = processor.audio_tokenizer.encoder
     assert isinstance(encoder, torch.nn.ModuleList)
-    assert getattr(encoder, "_sglang_omni_torch_compiled")
     assert len(compile_calls) == 2
-    assert [target for target, _ in compile_calls] == original_children
+    assert [call[0] for call in compile_calls] == original_children[1:]
     assert all(
         kwargs == {"mode": "reduce-overhead", "dynamic": True}
         for _, kwargs in compile_calls
     )
-    assert all(isinstance(child, _CompiledBlock) for child in encoder)
-    assert warmup_calls == 1
+    assert encoder[0] is original_children[0]
+    assert isinstance(encoder[1], _CompiledBlock)
+    assert isinstance(encoder[2], _CompiledBlock)
+    assert warmup_calls == sum(stages._DEFAULT_AUDIO_ENCODER_WARMUP_BATCH_SIZES)
     torch.testing.assert_close(
         processor.encode_audios_from_path(["still-iterable.wav"])[0],
-        torch.full((1, 1), 3.0),
+        torch.full((1, 1), 7.0),
     )
+
+
+def test_audio_encoder_compile_uses_runtime_buckets_beyond_warmup(monkeypatch):
+    from types import SimpleNamespace
+
+    from sglang_omni.models.moss_tts_local import stages
+
+    class _ProjectedTransformer(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.input_proj = torch.nn.Identity()
+            self.transformer = torch.nn.Identity()
+            self.output_proj = torch.nn.Identity()
+
+        def forward(self, z, lengths):
+            return z, lengths
+
+    class _AudioTokenizer:
+        sampling_rate = 10
+        downsample_rate = 1
+        number_channels = 1
+
+        def __init__(self):
+            self.encoder = _ProjectedTransformer()
+
+        def _prepare_waveform_batch(self, wav_list):
+            lengths = torch.tensor([wav.shape[-1] for wav in wav_list])
+            max_length = int(lengths.max().item())
+            return torch.zeros(len(wav_list), 1, max_length), lengths
+
+        def _encode_frame(self, input_values, input_lengths, n_quantizers=None):
+            del n_quantizers
+            z = input_values[:, 0, :1]
+            z, lengths = self.encoder(z, input_lengths)
+            return SimpleNamespace(
+                audio_codes=z.view(1, input_values.shape[0], 1),
+                audio_codes_lengths=lengths,
+                encoder_hidden_states=z.view(input_values.shape[0], 1, 1),
+            )
+
+    class _CompiledBlock(torch.nn.Module):
+        def __init__(self, target):
+            super().__init__()
+            self.target = target
+
+        def forward(self, *args, **kwargs):
+            return self.target(*args, **kwargs)
+
+    class _Processor:
+        def __init__(self):
+            self.audio_tokenizer = _AudioTokenizer()
+            self.model_config = SimpleNamespace(sampling_rate=10)
+
+        def encode_audios_from_path(self, paths):
+            input_values, input_lengths = self.audio_tokenizer._prepare_waveform_batch(
+                [torch.zeros(1) for _ in paths]
+            )
+            result = self.audio_tokenizer._encode_frame(input_values, input_lengths)
+            return [result.encoder_hidden_states[index] for index in range(len(paths))]
+
+    monkeypatch.setattr(
+        stages.torch,
+        "compile",
+        lambda target, **kwargs: _CompiledBlock(target),
+    )
+    processor = _Processor()
+
+    stages._compile_moss_tts_local_audio_encoder(
+        processor,
+        warmup_seconds=[0.1],
+        max_batch_size=4,
+    )
+    input_values, lengths = processor.audio_tokenizer._prepare_waveform_batch(
+        [torch.zeros(15)]
+    )
+
+    assert input_values.shape == (1, 1, 20)
+    torch.testing.assert_close(lengths, torch.tensor([15]))
 
 
 def test_audio_encoder_compile_validates_warmup_before_compile(monkeypatch):
@@ -606,8 +796,18 @@ def test_audio_encoder_compile_validates_warmup_before_compile(monkeypatch):
 
     from sglang_omni.models.moss_tts_local import stages
 
+    class _ProjectedTransformer(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.input_proj = torch.nn.Identity()
+            self.transformer = torch.nn.Identity()
+            self.output_proj = torch.nn.Identity()
+
+        def forward(self, z, lengths):
+            return z, lengths
+
     processor = SimpleNamespace(
-        audio_tokenizer=SimpleNamespace(encoder=torch.nn.Linear(1, 1))
+        audio_tokenizer=SimpleNamespace(encoder=_ProjectedTransformer())
     )
     original_encoder = processor.audio_tokenizer.encoder
     compile_calls = []
@@ -634,40 +834,63 @@ def test_audio_encoder_compile_module_list_failure_restores_children(monkeypatch
     from sglang_omni.models.moss_tts_local import stages
 
     class _EncoderBlock(torch.nn.Module):
-        def __init__(self, offset: float):
+        def __init__(self, offset: float, *, projected: bool = True):
             super().__init__()
             self.offset = offset
+            if projected:
+                self.input_proj = torch.nn.Identity()
+                self.transformer = torch.nn.Identity()
+                self.output_proj = torch.nn.Identity()
 
         def forward(self, z, lengths):
             return z + self.offset, lengths
 
-    class _CompiledBlock(torch.nn.Module):
-        def __init__(self, target):
-            super().__init__()
-            self.target = target
+    class _AudioTokenizer:
+        sampling_rate = 10
+        downsample_rate = 1
+        number_channels = 1
 
+        def __init__(self):
+            self.encoder = torch.nn.ModuleList(
+                [
+                    _EncoderBlock(1.0, projected=False),
+                    _EncoderBlock(2.0),
+                ]
+            )
+
+        def _prepare_waveform_batch(self, wav_list):
+            lengths = torch.ones(len(wav_list), dtype=torch.long)
+            return torch.zeros(len(wav_list), 1, 1), lengths
+
+        def _encode_frame(self, input_values, input_lengths, n_quantizers=None):
+            del n_quantizers
+            z = torch.zeros((input_values.shape[0], 1), dtype=torch.float32)
+            lengths = input_lengths.clone()
+            for encoder_module in self.encoder:
+                z, lengths = encoder_module(z, lengths)
+            return SimpleNamespace(
+                audio_codes=z.view(1, input_values.shape[0], 1),
+                audio_codes_lengths=lengths,
+                encoder_hidden_states=z.view(input_values.shape[0], 1, 1),
+            )
+
+    class _CompiledBlock(torch.nn.Module):
         def forward(self, *args, **kwargs):
-            return self.target(*args, **kwargs)
+            del args, kwargs
+            raise RuntimeError("warmup failed")
 
     class _Processor:
         def __init__(self):
-            self.audio_tokenizer = SimpleNamespace(
-                encoder=torch.nn.ModuleList(
-                    [
-                        _EncoderBlock(1.0),
-                        _EncoderBlock(2.0),
-                    ]
-                )
-            )
+            self.audio_tokenizer = _AudioTokenizer()
             self.model_config = SimpleNamespace(sampling_rate=10)
 
         def encode_audios_from_path(self, paths):
             del paths
-            z = torch.zeros((1, 1), dtype=torch.float32)
-            lengths = torch.ones((1,), dtype=torch.long)
-            for encoder_module in self.audio_tokenizer.encoder:
-                z, lengths = encoder_module(z, lengths)
-            return [z]
+            input_values, input_lengths = self.audio_tokenizer._prepare_waveform_batch(
+                [torch.zeros(1)]
+            )
+            result = self.audio_tokenizer._encode_frame(input_values, input_lengths)
+            return [result.encoder_hidden_states[0]]
 
     processor = _Processor()
     encoder = processor.audio_tokenizer.encoder
@@ -677,9 +900,7 @@ def test_audio_encoder_compile_module_list_failure_restores_children(monkeypatch
     def fake_compile(target, **kwargs):
         del kwargs
         compile_calls.append(target)
-        if len(compile_calls) == 2:
-            raise RuntimeError("compile failed")
-        return _CompiledBlock(target)
+        return _CompiledBlock()
 
     monkeypatch.setattr(stages.torch, "compile", fake_compile)
 
@@ -690,7 +911,7 @@ def test_audio_encoder_compile_module_list_failure_restores_children(monkeypatch
         )
 
     assert list(encoder) == original_children
-    assert not getattr(encoder, "_sglang_omni_torch_compiled", False)
+    assert compile_calls == [original_children[1]]
     torch.testing.assert_close(
         processor.encode_audios_from_path(["still-eager.wav"])[0],
         torch.full((1, 1), 3.0),
@@ -708,7 +929,7 @@ def test_audio_encoder_compile_target_resolver_ignores_encoder_methods():
 
     processor = SimpleNamespace(audio_tokenizer=_Tokenizer())
 
-    with pytest.raises(RuntimeError, match="no supported audio encoder module"):
+    with pytest.raises(RuntimeError, match="no supported projected transformer"):
         stages._resolve_audio_encoder_compile_target(processor)
 
 
@@ -722,21 +943,139 @@ def test_audio_encoder_compile_reports_missing_target_without_quantizer_fallback
             quantizer=SimpleNamespace(forward=lambda z: z),
         )
     )
-    with pytest.raises(RuntimeError, match="no supported audio encoder module"):
+    with pytest.raises(RuntimeError, match="no supported projected transformer"):
         stages._compile_moss_tts_local_audio_encoder(processor)
 
 
 def test_audio_encoder_warmup_seconds_validation():
     from sglang_omni.models.moss_tts_local import stages
 
-    assert stages._normalize_audio_encoder_warmup_seconds(
-        None
-    ) == stages._DEFAULT_AUDIO_ENCODER_WARMUP_SECONDS
+    assert (
+        stages._normalize_audio_encoder_warmup_seconds(None)
+        == stages._DEFAULT_AUDIO_ENCODER_WARMUP_SECONDS
+    )
     assert stages._normalize_audio_encoder_warmup_seconds([1, 3.0]) == (1.0, 3.0)
     with pytest.raises(RuntimeError, match="warm-up is empty"):
         stages._normalize_audio_encoder_warmup_seconds([])
     with pytest.raises(RuntimeError, match="must be positive"):
         stages._normalize_audio_encoder_warmup_seconds([0])
+
+
+def test_audio_encoder_batch_buckets_cover_non_power_of_two_max():
+    from sglang_omni.models.moss_tts_local import stages
+
+    buckets = stages._normalize_audio_encoder_batch_buckets(6)
+
+    assert buckets == (1, 2, 4, 8)
+    assert stages._bucket_audio_encoder_batch_size(5, buckets) == 8
+    assert stages._bucket_audio_encoder_batch_size(6, buckets) == 8
+
+
+def test_audio_encoder_compile_padding_buckets_waveform_lengths():
+    from types import MethodType, SimpleNamespace
+
+    from sglang_omni.models.moss_tts_local import stages
+
+    class _AudioTokenizer:
+        sampling_rate = 8
+        downsample_rate = 4
+        number_channels = 1
+
+        def _prepare_waveform_batch(self, wav_list):
+            lengths = torch.tensor([wav.shape[-1] for wav in wav_list])
+            max_length = int(lengths.max().item())
+            values = torch.zeros(len(wav_list), 2, max_length)
+            return values, lengths
+
+        def _encode_frame(self, input_values, input_lengths, n_quantizers=None):
+            del n_quantizers
+            return SimpleNamespace(
+                audio_codes=torch.zeros(
+                    1, input_values.shape[0], input_values.shape[-1]
+                ),
+                audio_codes_lengths=input_lengths,
+                encoder_hidden_states=torch.zeros(
+                    input_values.shape[0], 1, input_values.shape[-1]
+                ),
+            )
+
+    tokenizer = _AudioTokenizer()
+    processor = SimpleNamespace(audio_tokenizer=tokenizer)
+
+    stages._install_audio_encoder_compile_padding(
+        processor,
+        bucket_seconds=[1.0, 2.0],
+    )
+
+    input_values, lengths = tokenizer._prepare_waveform_batch(
+        [torch.zeros(2, 7), torch.zeros(2, 5)]
+    )
+    assert input_values.shape == (2, 2, 8)
+    torch.testing.assert_close(lengths, torch.tensor([7, 5]))
+
+    input_values, lengths = tokenizer._prepare_waveform_batch([torch.zeros(2, 9)])
+    assert input_values.shape == (1, 2, 16)
+    torch.testing.assert_close(lengths, torch.tensor([9]))
+    assert isinstance(
+        tokenizer._sglang_omni_original_prepare_waveform_batch,
+        MethodType,
+    )
+    assert isinstance(tokenizer._sglang_omni_original_encode_frame, MethodType)
+
+
+def test_audio_encoder_compile_padding_buckets_encode_frame_lengths_and_batch():
+    from types import SimpleNamespace
+
+    from sglang_omni.models.moss_tts_local import stages
+
+    encode_calls = []
+
+    class _AudioTokenizer:
+        sampling_rate = 8
+        downsample_rate = 4
+        number_channels = 1
+
+        def _prepare_waveform_batch(self, wav_list):
+            lengths = torch.tensor([wav.shape[-1] for wav in wav_list])
+            max_length = int(lengths.max().item())
+            return torch.zeros(len(wav_list), 2, max_length), lengths
+
+        def _encode_frame(self, input_values, input_lengths, n_quantizers=None):
+            del n_quantizers
+            encode_calls.append((tuple(input_values.shape), input_lengths.clone()))
+            return SimpleNamespace(
+                audio_codes=torch.zeros(
+                    1,
+                    input_values.shape[0],
+                    input_values.shape[-1],
+                ),
+                audio_codes_lengths=input_lengths.clone(),
+                encoder_hidden_states=torch.zeros(
+                    input_values.shape[0],
+                    1,
+                    input_values.shape[-1],
+                ),
+            )
+
+    tokenizer = _AudioTokenizer()
+    processor = SimpleNamespace(audio_tokenizer=tokenizer)
+    stages._install_audio_encoder_compile_padding(
+        processor,
+        bucket_seconds=[1.0, 2.0],
+        max_batch_size=4,
+    )
+
+    values, lengths = tokenizer._prepare_waveform_batch(
+        [torch.zeros(2, 9), torch.zeros(2, 7), torch.zeros(2, 5)]
+    )
+    result = tokenizer._encode_frame(values, lengths)
+
+    assert len(encode_calls) == 1
+    assert encode_calls[0][0] == (4, 2, 16)
+    torch.testing.assert_close(encode_calls[0][1], torch.tensor([16, 16, 16, 16]))
+    assert result.audio_codes.shape == (1, 3, 9)
+    assert result.encoder_hidden_states.shape == (3, 1, 9)
+    torch.testing.assert_close(result.audio_codes_lengths, torch.tensor([9, 7, 5]))
 
 
 def test_audio_encoder_compile_failure_restores_encoder(monkeypatch):
@@ -745,18 +1084,50 @@ def test_audio_encoder_compile_failure_restores_encoder(monkeypatch):
     from sglang_omni.models.moss_tts_local import stages
 
     class _Encoder(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.input_proj = torch.nn.Identity()
+            self.transformer = torch.nn.Identity()
+            self.output_proj = torch.nn.Identity()
+
         def forward(self, z):
             return z
 
+    class _AudioTokenizer:
+        sampling_rate = 8
+        downsample_rate = 4
+        number_channels = 1
+
+        def __init__(self):
+            self.encoder = _Encoder()
+
+        def _prepare_waveform_batch(self, wav_list):
+            lengths = torch.tensor([wav.shape[-1] for wav in wav_list])
+            max_length = int(lengths.max().item())
+            values = torch.zeros(len(wav_list), 2, max_length)
+            return values, lengths
+
+        def _encode_frame(self, input_values, input_lengths, n_quantizers=None):
+            del input_lengths, n_quantizers
+            encoded = self.encoder(torch.ones(input_values.shape[0], 1))
+            return SimpleNamespace(
+                audio_codes=encoded.view(1, input_values.shape[0], 1),
+                audio_codes_lengths=torch.ones(input_values.shape[0], dtype=torch.long),
+                encoder_hidden_states=encoded.view(input_values.shape[0], 1, 1),
+            )
+
     class _Processor:
         def __init__(self):
-            self.audio_tokenizer = SimpleNamespace(encoder=_Encoder())
+            self.audio_tokenizer = _AudioTokenizer()
             self.model_config = SimpleNamespace(sampling_rate=10)
 
         def encode_audios_from_path(self, paths):
             del paths
-            z = torch.ones((1, 1), dtype=torch.float32)
-            return [self.audio_tokenizer.encoder(z)]
+            values, lengths = self.audio_tokenizer._prepare_waveform_batch(
+                [torch.zeros(2, 7)]
+            )
+            result = self.audio_tokenizer._encode_frame(values, lengths)
+            return [result.encoder_hidden_states[0]]
 
     processor = _Processor()
     original_encoder = processor.audio_tokenizer.encoder
@@ -776,6 +1147,15 @@ def test_audio_encoder_compile_failure_restores_encoder(monkeypatch):
         stages._compile_moss_tts_local_audio_encoder(processor)
 
     assert processor.audio_tokenizer.encoder is original_encoder
+    assert not hasattr(
+        processor.audio_tokenizer,
+        "_sglang_omni_compile_padding_installed",
+    )
+    values, lengths = processor.audio_tokenizer._prepare_waveform_batch(
+        [torch.zeros(2, 7)]
+    )
+    assert values.shape == (1, 2, 7)
+    torch.testing.assert_close(lengths, torch.tensor([7]))
     out = processor.encode_audios_from_path(["still-eager.wav"])[0]
     torch.testing.assert_close(out, torch.ones((1, 1), dtype=torch.float32))
 
@@ -791,14 +1171,13 @@ def test_create_preprocessing_executor_forwards_compile_options(monkeypatch):
         calls["load_kwargs"] = kwargs
         return SimpleNamespace()
 
-    monkeypatch.setattr(
-        stages, "_load_moss_tts_local_processor", fake_load_processor
-    )
+    monkeypatch.setattr(stages, "_load_moss_tts_local_processor", fake_load_processor)
 
     try:
         stages.create_preprocessing_executor(
             "model",
             device="cuda:4",
+            enable_audio_encoder_torch_compile=True,
             audio_encoder_torch_compile_mode=None,
             audio_encoder_torch_compile_warmup_seconds=[1.0, 3.0],
         )
@@ -812,9 +1191,10 @@ def test_create_preprocessing_executor_forwards_compile_options(monkeypatch):
         1.0,
         3.0,
     ]
+    assert calls["load_kwargs"]["audio_encoder_torch_compile_max_batch_size"] == 8
 
 
-def test_create_preprocessing_executor_skips_warmup_when_compile_disabled(
+def test_create_preprocessing_executor_skips_compile_by_default(
     monkeypatch,
 ):
     from sglang_omni.models.moss_tts_local import stages
@@ -829,15 +1209,12 @@ def test_create_preprocessing_executor_skips_warmup_when_compile_disabled(
         calls["load_kwargs"] = kwargs
         return _Processor()
 
-    monkeypatch.setattr(
-        stages, "_load_moss_tts_local_processor", fake_load_processor
-    )
+    monkeypatch.setattr(stages, "_load_moss_tts_local_processor", fake_load_processor)
 
     try:
         stages.create_preprocessing_executor(
             "model",
             device="cuda:4",
-            enable_audio_encoder_torch_compile=False,
         )
     finally:
         clear_moss_tts_local_preprocessing_context()
@@ -857,9 +1234,7 @@ def test_vocoder_executor_does_not_enable_audio_encoder_compile(monkeypatch):
         calls["load_kwargs"] = kwargs
         return SimpleNamespace(model_config=SimpleNamespace(sampling_rate=48000))
 
-    monkeypatch.setattr(
-        stages, "_load_moss_tts_local_processor", fake_load_processor
-    )
+    monkeypatch.setattr(stages, "_load_moss_tts_local_processor", fake_load_processor)
 
     stages.create_vocoder_executor("model", device="cuda:5")
 

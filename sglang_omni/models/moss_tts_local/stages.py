@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import logging
+import math
 import os
 import queue
 import tempfile
@@ -47,19 +48,26 @@ _MOSS_TTS_LOCAL_INSTALL_HINT = (
     "OpenMOSS-Team/MOSS-Audio-Tokenizer-v2."
 )
 
-# Encoder-like module candidates exposed by the upstream MOSS remote code.
-# If upstream moves the true heavy encoder behind another attribute, add that
-# path after verifying it with inspect.getsource/profiler. Do not fall back to
-# quantizer without benchmark evidence; quantization may not be the hotspot.
+# Containers where upstream MOSS exposes projected transformer encoder blocks.
+# Compile only those blocks; broader encode wrappers, patched pretransforms and
+# quantizers have shape/control-flow churn and are intentionally excluded.
 _AUDIO_ENCODER_COMPILE_TARGET_CANDIDATES: tuple[tuple[str, ...], ...] = (
-    ("audio_tokenizer", "acoustic_encoder"),
     ("audio_tokenizer", "encoder"),
-    ("audio_tokenizer", "model", "acoustic_encoder"),
-    ("audio_tokenizer", "model", "encoder"),
 )
-# Match Higgs: run one second of silence through the public encode path so the
-# first torch.compile happens during startup instead of on the first request.
-_DEFAULT_AUDIO_ENCODER_WARMUP_SECONDS = (1.0,)
+_DEFAULT_AUDIO_ENCODER_WARMUP_BATCH_SIZES = (1, 2, 4, 8)
+_DEFAULT_AUDIO_ENCODER_LENGTH_BUCKET_SECONDS = (
+    1.0,
+    2.0,
+    4.0,
+    8.0,
+    16.0,
+    32.0,
+    64.0,
+    100.0,
+)
+# Startup precompile only covers common short references; longer runtime buckets
+# stay available and compile on first use instead of taxing every server start.
+_DEFAULT_AUDIO_ENCODER_WARMUP_SECONDS = (1.0, 2.0, 4.0, 8.0, 16.0)
 
 # NOTE: the preprocessing and vocoder stages each load their own processor
 # (and thus their own ~4.3 GB bf16 codec instance). The codec's chunked decode
@@ -104,9 +112,9 @@ def _resolve_codec_device(device: str | None, gpu_id: int | None) -> str:
     return "cuda:0"
 
 
-def _resolve_audio_encoder_compile_target(
+def _resolve_audio_encoder_compile_targets(
     processor: Any,
-) -> tuple[Any, str, Any, str]:
+) -> list[tuple[Any, str, torch.nn.Module, str]]:
     audio_tokenizer = getattr(processor, "audio_tokenizer", None)
     if audio_tokenizer is None:
         raise RuntimeError(
@@ -125,17 +133,45 @@ def _resolve_audio_encoder_compile_target(
 
         attr_name = path[-1]
         target = getattr(owner, attr_name, None)
-        if isinstance(target, torch.nn.Module):
-            return owner, attr_name, target, ".".join(path)
+        if isinstance(target, torch.nn.ModuleList):
+            children = [
+                (index, child)
+                for index, child in enumerate(target)
+                if isinstance(child, torch.nn.Module)
+                and _is_projected_transformer_like(child)
+            ]
+            if children:
+                return [
+                    (target, str(index), child, ".".join((*path, str(index))))
+                    for index, child in children
+                ]
+        elif isinstance(target, torch.nn.Module) and _is_projected_transformer_like(
+            target
+        ):
+            return [(owner, attr_name, target, ".".join(path))]
 
     candidates = ", ".join(
         ".".join(path) for path in _AUDIO_ENCODER_COMPILE_TARGET_CANDIDATES
     )
     raise RuntimeError(
         "MOSS-TTS Local audio encoder torch.compile is enabled, but no supported "
-        f"audio encoder module was found. Checked: {candidates}. If upstream "
-        "MOSS exposes the heavy encoder under another attribute, add it to the "
-        "candidate list after source/profiler verification."
+        "projected transformer encoder block was found. Checked: "
+        f"{candidates}."
+    )
+
+
+def _resolve_audio_encoder_compile_target(
+    processor: Any,
+) -> tuple[Any, str, torch.nn.Module, str]:
+    return _resolve_audio_encoder_compile_targets(processor)[0]
+
+
+def _is_projected_transformer_like(module: torch.nn.Module) -> bool:
+    class_name = module.__class__.__name__.lower()
+    if "projectedtransformer" in class_name:
+        return True
+    return all(
+        hasattr(module, attr) for attr in ("input_proj", "transformer", "output_proj")
     )
 
 
@@ -158,11 +194,372 @@ def _normalize_audio_encoder_warmup_seconds(
     return values
 
 
+def _replace_audio_encoder_compile_target(
+    owner: Any,
+    attr_name: str,
+    module: torch.nn.Module,
+) -> None:
+    if isinstance(owner, torch.nn.ModuleList) and attr_name.isdigit():
+        owner[int(attr_name)] = module
+    else:
+        setattr(owner, attr_name, module)
+
+
+def _normalize_audio_encoder_length_bucket_seconds(
+    bucket_seconds: Sequence[float] | None = None,
+) -> tuple[float, ...]:
+    source = (
+        _DEFAULT_AUDIO_ENCODER_LENGTH_BUCKET_SECONDS
+        if bucket_seconds is None
+        else bucket_seconds
+    )
+    values = tuple(float(value) for value in source)
+    if not values:
+        raise RuntimeError("MOSS-TTS Local audio encoder length buckets are empty")
+    previous = 0.0
+    for value in values:
+        if value <= 0:
+            raise RuntimeError(
+                "MOSS-TTS Local audio encoder length buckets must be positive"
+            )
+        if value <= previous:
+            raise RuntimeError(
+                "MOSS-TTS Local audio encoder length buckets must be strictly "
+                "increasing"
+            )
+        previous = value
+    return values
+
+
+def _ceil_to_multiple(value: int, multiple: int) -> int:
+    if multiple <= 1:
+        return value
+    return int(math.ceil(value / multiple) * multiple)
+
+
+def _normalize_audio_encoder_batch_buckets(
+    max_batch_size: int | None = None,
+) -> tuple[int, ...]:
+    max_batch_size = (
+        int(_DEFAULT_AUDIO_ENCODER_WARMUP_BATCH_SIZES[-1])
+        if max_batch_size is None
+        else int(max_batch_size)
+    )
+    if max_batch_size <= 0:
+        raise RuntimeError(
+            "MOSS-TTS Local audio encoder max batch size must be positive"
+        )
+
+    buckets: list[int] = []
+    bucket = 1
+    while bucket < max_batch_size:
+        buckets.append(bucket)
+        bucket *= 2
+    buckets.append(bucket)
+    if not buckets:
+        raise RuntimeError("MOSS-TTS Local audio encoder batch buckets are empty")
+    return tuple(buckets)
+
+
+def _bucket_audio_encoder_batch_size(batch_size: int, buckets: Sequence[int]) -> int:
+    for bucket in buckets:
+        if batch_size <= bucket:
+            return int(bucket)
+    return int(batch_size)
+
+
+def _audio_tokenizer_sample_rate(audio_tokenizer: Any) -> int:
+    return int(
+        getattr(audio_tokenizer, "sampling_rate", 0)
+        or getattr(getattr(audio_tokenizer, "config", None), "sampling_rate", 0)
+        or getattr(getattr(audio_tokenizer, "config", None), "sample_rate", 0)
+        or 48000
+    )
+
+
+def _audio_tokenizer_downsample_rate(audio_tokenizer: Any) -> int:
+    return int(
+        getattr(audio_tokenizer, "downsample_rate", 0)
+        or getattr(getattr(audio_tokenizer, "config", None), "downsample_rate", 0)
+        or 1
+    )
+
+
+def _bucket_audio_encoder_input_length(
+    audio_tokenizer: Any,
+    current_length: int,
+    buckets: Sequence[float],
+) -> int:
+    sampling_rate = _audio_tokenizer_sample_rate(audio_tokenizer)
+    downsample_rate = _audio_tokenizer_downsample_rate(audio_tokenizer)
+    target_length = current_length
+    for seconds in buckets:
+        bucket_length = _ceil_to_multiple(
+            int(math.ceil(seconds * sampling_rate)),
+            downsample_rate,
+        )
+        if current_length <= bucket_length:
+            target_length = bucket_length
+            break
+    else:
+        target_length = _ceil_to_multiple(current_length, downsample_rate)
+    return int(target_length)
+
+
+def _infer_audio_encoder_code_lengths(
+    audio_tokenizer: Any,
+    input_lengths: torch.Tensor,
+) -> torch.Tensor:
+    lengths = input_lengths.clone()
+    if int(getattr(audio_tokenizer, "number_channels", 1) or 1) > 1 and bool(
+        getattr(audio_tokenizer, "enable_channel_interleave", False)
+    ):
+        lengths = lengths * int(getattr(audio_tokenizer, "number_channels", 1) or 1)
+
+    encoder = getattr(audio_tokenizer, "encoder", None)
+    if isinstance(encoder, torch.nn.ModuleList):
+        modules = encoder
+    elif isinstance(encoder, torch.nn.Module):
+        modules = (encoder,)
+    else:
+        modules = ()
+
+    for module in modules:
+        patch_size = int(getattr(module, "patch_size", 0) or 0)
+        if patch_size > 0 and hasattr(module, "is_downsample"):
+            if bool(getattr(module, "is_downsample")):
+                lengths = torch.div(lengths, patch_size, rounding_mode="floor")
+            else:
+                lengths = lengths * patch_size
+            continue
+
+        ratio = int(getattr(module, "downsample_ratio", 1) or 1)
+        if ratio > 1 and "pretransform" in module.__class__.__name__.lower():
+            lengths = torch.div(lengths, ratio, rounding_mode="floor")
+
+    return lengths
+
+
+def _slice_audio_encoder_output(
+    result: Any, batch_size: int, lengths: torch.Tensor
+) -> Any:
+    max_valid_length = int(lengths.max().item()) if lengths.numel() > 0 else 0
+    audio_codes = getattr(result, "audio_codes", None)
+    audio_codes_lengths = getattr(result, "audio_codes_lengths", None)
+    encoder_hidden_states = getattr(result, "encoder_hidden_states", None)
+
+    if audio_codes is not None:
+        audio_codes = audio_codes[:, :batch_size, :max_valid_length]
+    if audio_codes_lengths is not None:
+        audio_codes_lengths = lengths
+    if encoder_hidden_states is not None:
+        encoder_hidden_states = encoder_hidden_states[:batch_size, :, :max_valid_length]
+
+    try:
+        return result.__class__(
+            audio_codes=audio_codes,
+            audio_codes_lengths=audio_codes_lengths,
+            encoder_hidden_states=encoder_hidden_states,
+        )
+    except Exception:
+        pass
+
+    if getattr(result, "audio_codes", None) is not None:
+        result.audio_codes = audio_codes
+    if getattr(result, "audio_codes_lengths", None) is not None:
+        result.audio_codes_lengths = audio_codes_lengths
+    if getattr(result, "encoder_hidden_states", None) is not None:
+        result.encoder_hidden_states = encoder_hidden_states
+    return result
+
+
+def _install_audio_encoder_compile_padding(
+    processor: Any,
+    *,
+    bucket_seconds: Sequence[float] | None = None,
+    max_batch_size: int | None = None,
+) -> None:
+    audio_tokenizer = getattr(processor, "audio_tokenizer", None)
+    if audio_tokenizer is None:
+        raise RuntimeError(
+            "MOSS-TTS Local audio encoder torch.compile is enabled, but the "
+            "processor has no audio_tokenizer"
+        )
+    missing_hooks = [
+        name
+        for name in ("_prepare_waveform_batch", "_encode_frame")
+        if not hasattr(audio_tokenizer, name)
+    ]
+    if missing_hooks:
+        raise RuntimeError(
+            "MOSS-TTS Local audio encoder torch.compile requires upstream "
+            f"audio tokenizer hooks: {', '.join(missing_hooks)}"
+        )
+    if getattr(audio_tokenizer, "_sglang_omni_compile_padding_installed", False):
+        return
+
+    buckets = _normalize_audio_encoder_length_bucket_seconds(bucket_seconds)
+    batch_buckets = _normalize_audio_encoder_batch_buckets(max_batch_size)
+    original_prepare = audio_tokenizer._prepare_waveform_batch
+    original_encode_frame = audio_tokenizer._encode_frame
+
+    def _bucketed_prepare_waveform_batch(self, wav_list):
+        input_values, lengths = original_prepare(wav_list)
+        current_length = int(input_values.shape[-1])
+        if current_length <= 0:
+            return input_values, lengths
+
+        target_length = _bucket_audio_encoder_input_length(
+            self, current_length, buckets
+        )
+        if target_length <= current_length:
+            return input_values, lengths
+        return (
+            torch.nn.functional.pad(
+                input_values,
+                (0, target_length - current_length),
+            ),
+            lengths,
+        )
+
+    def _bucketed_encode_frame(self, input_values, input_lengths=None, *args, **kwargs):
+        if input_values.dim() == 1:
+            input_values = input_values.view(1, 1, -1)
+        elif input_values.dim() == 2:
+            if int(getattr(self, "number_channels", 1) or 1) == 1:
+                input_values = input_values.unsqueeze(1)
+            else:
+                input_values = input_values.unsqueeze(0)
+
+        batch_size = int(input_values.shape[0])
+        current_length = int(input_values.shape[-1])
+        if input_lengths is None:
+            input_lengths = torch.full(
+                (batch_size,),
+                current_length,
+                device=input_values.device,
+                dtype=torch.long,
+            )
+        else:
+            input_lengths = input_lengths.to(
+                device=input_values.device, dtype=torch.long
+            )
+
+        original_lengths = input_lengths[:batch_size].clone()
+        target_length = _bucket_audio_encoder_input_length(
+            self,
+            max(
+                current_length,
+                int(original_lengths.max().item()) if original_lengths.numel() else 0,
+            ),
+            buckets,
+        )
+        if target_length > current_length:
+            input_values = torch.nn.functional.pad(
+                input_values,
+                (0, target_length - current_length),
+            )
+
+        target_batch_size = _bucket_audio_encoder_batch_size(batch_size, batch_buckets)
+        bucketed_lengths = torch.full(
+            (batch_size,),
+            target_length,
+            device=input_values.device,
+            dtype=torch.long,
+        )
+        if target_batch_size > batch_size:
+            pad_shape = (
+                target_batch_size - batch_size,
+                *input_values.shape[1:],
+            )
+            input_values = torch.cat(
+                [input_values, input_values.new_zeros(pad_shape)],
+                dim=0,
+            )
+            bucketed_lengths = torch.cat(
+                [
+                    bucketed_lengths,
+                    torch.full(
+                        (target_batch_size - batch_size,),
+                        target_length,
+                        device=input_values.device,
+                        dtype=torch.long,
+                    ),
+                ],
+                dim=0,
+            )
+
+        result = original_encode_frame(
+            input_values,
+            bucketed_lengths,
+            *args,
+            **kwargs,
+        )
+        code_lengths = _infer_audio_encoder_code_lengths(self, original_lengths)
+        return _slice_audio_encoder_output(result, batch_size, code_lengths)
+
+    audio_tokenizer._prepare_waveform_batch = _bucketed_prepare_waveform_batch.__get__(
+        audio_tokenizer,
+        audio_tokenizer.__class__,
+    )
+    audio_tokenizer._encode_frame = _bucketed_encode_frame.__get__(
+        audio_tokenizer,
+        audio_tokenizer.__class__,
+    )
+    setattr(audio_tokenizer, "_sglang_omni_compile_padding_installed", True)
+    setattr(
+        audio_tokenizer,
+        "_sglang_omni_original_prepare_waveform_batch",
+        original_prepare,
+    )
+    setattr(
+        audio_tokenizer,
+        "_sglang_omni_original_encode_frame",
+        original_encode_frame,
+    )
+    logger.info(
+        "Installed MOSS-TTS Local audio encoder compile buckets: lengths=[%s], "
+        "batches=[%s]",
+        ", ".join(f"{seconds:g}s" for seconds in buckets),
+        ", ".join(str(batch_size) for batch_size in batch_buckets),
+    )
+
+
+def _restore_audio_encoder_compile_padding(processor: Any) -> None:
+    audio_tokenizer = getattr(processor, "audio_tokenizer", None)
+    if audio_tokenizer is None:
+        return
+    original_prepare = getattr(
+        audio_tokenizer,
+        "_sglang_omni_original_prepare_waveform_batch",
+        None,
+    )
+    if original_prepare is not None:
+        audio_tokenizer._prepare_waveform_batch = original_prepare
+    original_encode_frame = getattr(
+        audio_tokenizer,
+        "_sglang_omni_original_encode_frame",
+        None,
+    )
+    if original_encode_frame is not None:
+        audio_tokenizer._encode_frame = original_encode_frame
+    for attr in (
+        "_sglang_omni_compile_padding_installed",
+        "_sglang_omni_original_prepare_waveform_batch",
+        "_sglang_omni_original_encode_frame",
+    ):
+        try:
+            delattr(audio_tokenizer, attr)
+        except AttributeError:
+            pass
+
+
 def _compile_moss_tts_local_audio_encoder(
     processor: Any,
     *,
     mode: str | None = "default",
     warmup_seconds: Sequence[float] | None = None,
+    max_batch_size: int | None = None,
 ) -> None:
     if not hasattr(torch, "compile"):
         raise RuntimeError(
@@ -170,72 +567,58 @@ def _compile_moss_tts_local_audio_encoder(
             "PyTorch build does not provide torch.compile"
         )
 
-    owner, attr_name, target, target_name = _resolve_audio_encoder_compile_target(
-        processor
+    targets = _resolve_audio_encoder_compile_targets(processor)
+    normalized_warmup_seconds = _normalize_audio_encoder_warmup_seconds(warmup_seconds)
+    batch_buckets = _normalize_audio_encoder_batch_buckets(max_batch_size)
+    _install_audio_encoder_compile_padding(
+        processor,
+        max_batch_size=max_batch_size,
     )
-    normalized_warmup_seconds = _normalize_audio_encoder_warmup_seconds(
-        warmup_seconds
-    )
-    if getattr(target, "_sglang_omni_torch_compiled", False):
-        logger.info(
-            "MOSS-TTS Local audio encoder already compiled at %s",
-            target_name,
-        )
+    if all(
+        getattr(target, "_sglang_omni_torch_compiled", False)
+        for _, _, target, _ in targets
+    ):
+        logger.info("MOSS-TTS Local audio encoder targets are already compiled")
         return
 
     compile_kwargs: dict[str, Any] = {"dynamic": True}
     if mode is not None:
         compile_kwargs["mode"] = mode
 
-    original_children: list[torch.nn.Module] | None = None
+    replaced: list[tuple[Any, str, torch.nn.Module, str]] = []
     try:
-        if isinstance(target, torch.nn.ModuleList):
-            original_children = list(target)
-            for index, child in enumerate(original_children):
-                compiled_child = torch.compile(child, **compile_kwargs)
-                try:
-                    setattr(compiled_child, "_sglang_omni_torch_compiled", True)
-                except Exception:
-                    pass
-                target[index] = compiled_child
-            try:
-                setattr(target, "_sglang_omni_torch_compiled", True)
-            except Exception:
-                pass
-        else:
+        for owner, attr_name, target, target_name in targets:
+            if getattr(target, "_sglang_omni_torch_compiled", False):
+                continue
             compiled_target = torch.compile(target, **compile_kwargs)
             try:
                 setattr(compiled_target, "_sglang_omni_torch_compiled", True)
             except Exception:
                 pass
-            setattr(owner, attr_name, compiled_target)
+            _replace_audio_encoder_compile_target(owner, attr_name, compiled_target)
+            replaced.append((owner, attr_name, target, target_name))
         _warm_up_moss_tts_local_audio_encoder(
             processor,
             warmup_seconds=normalized_warmup_seconds,
+            batch_sizes=batch_buckets,
         )
     except Exception as exc:
-        if isinstance(target, torch.nn.ModuleList):
-            if original_children is not None:
-                for index, child in enumerate(original_children):
-                    target[index] = child
-            try:
-                delattr(target, "_sglang_omni_torch_compiled")
-            except AttributeError:
-                pass
-        else:
-            setattr(owner, attr_name, target)
+        for owner, attr_name, target, _ in reversed(replaced):
+            _replace_audio_encoder_compile_target(owner, attr_name, target)
+        _restore_audio_encoder_compile_padding(processor)
+        target_names = ", ".join(target_name for _, _, _, target_name in targets)
         logger.exception(
             "MOSS-TTS Local audio encoder torch.compile failed for %s",
-            target_name,
+            target_names,
         )
         raise RuntimeError(
-            "MOSS-TTS Local audio encoder torch.compile failed for "
-            f"{target_name}"
+            f"MOSS-TTS Local audio encoder torch.compile failed for {target_names}"
         ) from exc
 
+    target_names = ", ".join(target_name for _, _, _, target_name in targets)
     logger.info(
         "Compiled MOSS-TTS Local audio encoder at %s (mode=%s, dynamic=True)",
-        target_name,
+        target_names,
         mode,
     )
 
@@ -264,6 +647,7 @@ def _warm_up_moss_tts_local_audio_encoder(
     processor: Any,
     *,
     warmup_seconds: Sequence[float],
+    batch_sizes: Sequence[int] = _DEFAULT_AUDIO_ENCODER_WARMUP_BATCH_SIZES,
 ) -> None:
     sample_rate = _processor_sample_rate(processor)
     for seconds in warmup_seconds:
@@ -271,7 +655,8 @@ def _warm_up_moss_tts_local_audio_encoder(
         os.close(fd)
         try:
             _write_silent_wav(path, sample_rate=sample_rate, duration_s=seconds)
-            processor.encode_audios_from_path([path])
+            for batch_size in batch_sizes:
+                processor.encode_audios_from_path([path] * batch_size)
         except Exception as exc:
             raise RuntimeError(
                 "MOSS-TTS Local audio encoder torch.compile warm-up failed"
@@ -290,6 +675,7 @@ def _load_moss_tts_local_processor(
     enable_audio_encoder_torch_compile: bool = False,
     audio_encoder_torch_compile_mode: str | None = "default",
     audio_encoder_torch_compile_warmup_seconds: Sequence[float] | None = None,
+    audio_encoder_torch_compile_max_batch_size: int | None = None,
 ) -> Any:
     checkpoint_dir = _resolve_checkpoint(model_path)
     logger.info(
@@ -320,6 +706,7 @@ def _load_moss_tts_local_processor(
             processor,
             mode=audio_encoder_torch_compile_mode,
             warmup_seconds=audio_encoder_torch_compile_warmup_seconds,
+            max_batch_size=audio_encoder_torch_compile_max_batch_size,
         )
     return processor
 
@@ -641,7 +1028,7 @@ def create_preprocessing_executor(
     ref_audio_cache: bool = True,
     ref_audio_cache_max_items: int = 256,
     ref_audio_cache_max_bytes: int = 64 * 1024 * 1024,
-    enable_audio_encoder_torch_compile: bool = True,
+    enable_audio_encoder_torch_compile: bool = False,
     audio_encoder_torch_compile_mode: str | None = "default",
     audio_encoder_torch_compile_warmup_seconds: Sequence[float] | None = None,
 ) -> SimpleScheduler:
@@ -665,6 +1052,7 @@ def create_preprocessing_executor(
         audio_encoder_torch_compile_warmup_seconds=(
             audio_encoder_torch_compile_warmup_seconds
         ),
+        audio_encoder_torch_compile_max_batch_size=encode_batch_size,
     )
     reference_encoder: Any = _BatchedReferenceEncoder(
         processor,
