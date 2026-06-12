@@ -175,6 +175,16 @@ def test_pipeline_stage_wiring():
     assert stages["preprocessing"].process == "pipeline"
     assert stages["preprocessing"].gpu == 0
     assert stages["preprocessing"].factory_args["device"] == "cuda:1"
+    assert (
+        stages["preprocessing"].factory_args["enable_quantizer_torch_compile"] is False
+    )
+    assert (
+        stages["preprocessing"].factory_args["quantizer_torch_compile_mode"]
+        == "default"
+    )
+    assert stages["preprocessing"].factory_args[
+        "quantizer_torch_compile_warmup_seconds"
+    ] == [1.0]
     assert stages["tts_engine"].process == "pipeline"
     assert stages["tts_engine"].gpu == 0
     assert stages["vocoder"].process == "pipeline"
@@ -320,6 +330,160 @@ def test_create_preprocessing_executor_env_toggle(monkeypatch):
     assert isinstance(
         rb._PREPROCESSING_CONTEXT.reference_encoder, stages.CachedReferenceEncoder
     )
+
+
+def test_quantizer_torch_compile_wraps_forward_and_warms_up(monkeypatch):
+    from sglang_omni.models.moss_tts_local import stages
+
+    class _FakeQuantizer(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.calls = 0
+            self.compiled_calls = 0
+            self.last_n_quantizers = "unset"
+
+        @torch.no_grad()
+        def forward(self, z, input_length, n_quantizers=None):
+            del input_length
+            self.calls += 1
+            self.last_n_quantizers = n_quantizers
+            return z
+
+    class _FakeAudioTokenizer(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.quantizer = _FakeQuantizer()
+
+    class _FakeModelConfig:
+        sampling_rate = 24000
+
+    class _FakeProcessor:
+        def __init__(self):
+            self.audio_tokenizer = _FakeAudioTokenizer()
+            self.model_config = _FakeModelConfig()
+            self.warmup_shapes = []
+
+        def encode_audios_from_wav(self, wavs, sample_rate):
+            assert sample_rate == 24000
+            self.warmup_shapes.append(tuple(wavs[0].shape))
+            input_length = torch.tensor([wavs[0].shape[-1]])
+            return [
+                self.audio_tokenizer.quantizer(
+                    wavs[0], input_length, n_quantizers=None
+                )
+            ]
+
+    compile_calls = []
+    processor = _FakeProcessor()
+
+    def fake_compile(target, **kwargs):
+        compile_calls.append((target, kwargs))
+
+        def wrapped(*args, **inner_kwargs):
+            processor.audio_tokenizer.quantizer.compiled_calls += 1
+            return target(*args, **inner_kwargs)
+
+        return wrapped
+
+    monkeypatch.setattr(torch, "compile", fake_compile)
+
+    stages._compile_moss_tts_local_quantizer(
+        processor,
+        compile_mode="reduce-overhead",
+        warmup_seconds=[1.0, 3.0],
+    )
+
+    assert len(compile_calls) == 1
+    target, kwargs = compile_calls[0]
+    assert getattr(target, "__name__", "") == "forward"
+    assert kwargs == {
+        "fullgraph": False,
+        "dynamic": True,
+        "mode": "reduce-overhead",
+    }
+    assert processor.warmup_shapes == [(1, 24000), (1, 72000)]
+    assert processor.audio_tokenizer.quantizer.calls == 2
+    assert processor.audio_tokenizer.quantizer.compiled_calls == 2
+    assert processor.audio_tokenizer.quantizer.last_n_quantizers is None
+
+
+def test_quantizer_torch_compile_failure_restores_forward(monkeypatch):
+    from sglang_omni.models.moss_tts_local import stages
+
+    class _FakeQuantizer(torch.nn.Module):
+        @torch.no_grad()
+        def forward(self, z, input_length, n_quantizers=None):
+            del input_length, n_quantizers
+            return z
+
+    class _FakeAudioTokenizer(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.quantizer = _FakeQuantizer()
+
+    class _FakeProcessor:
+        def __init__(self):
+            self.audio_tokenizer = _FakeAudioTokenizer()
+
+        def encode_audios_from_wav(self, wavs, sample_rate):
+            del sample_rate
+            input_length = torch.tensor([wavs[0].shape[-1]])
+            return [self.audio_tokenizer.quantizer(wavs[0], input_length)]
+
+    def fake_compile(*args, **kwargs):
+        del args, kwargs
+
+        def wrapped(*args, **kwargs):
+            del args, kwargs
+            raise RuntimeError("warmup failed")
+
+        return wrapped
+
+    monkeypatch.setattr(torch, "compile", fake_compile)
+    processor = _FakeProcessor()
+
+    with pytest.raises(RuntimeError, match="quantizer torch.compile failed"):
+        stages._compile_moss_tts_local_quantizer(processor)
+
+    assert "forward" not in processor.audio_tokenizer.quantizer.__dict__
+    value = torch.tensor([[1.0]])
+    assert torch.equal(processor.encode_audios_from_wav([value], 48000)[0], value)
+
+
+def test_create_preprocessing_executor_quantizer_compile_wiring(monkeypatch):
+    from sglang_omni.models.moss_tts_local import stages
+
+    captured = []
+    processor = _FakeProcessor()
+
+    monkeypatch.setattr(
+        stages, "_load_moss_tts_local_processor", lambda *a, **k: processor
+    )
+    monkeypatch.setattr(
+        stages,
+        "_compile_moss_tts_local_quantizer",
+        lambda proc, *, compile_mode, warmup_seconds: captured.append(
+            (proc, compile_mode, warmup_seconds)
+        ),
+    )
+
+    stages.create_preprocessing_executor(
+        "model",
+        device="cpu",
+        enable_quantizer_torch_compile=True,
+        quantizer_torch_compile_mode="reduce-overhead",
+        quantizer_torch_compile_warmup_seconds=[1.0, 2.0],
+    )
+    assert captured == [(processor, "reduce-overhead", [1.0, 2.0])]
+
+    captured.clear()
+    monkeypatch.setenv("MOSS_LOCAL_QUANTIZER_TORCH_COMPILE", "0")
+    stages.create_preprocessing_executor(
+        "model",
+        device="cpu",
+        enable_quantizer_torch_compile=True,
+    )
+    assert captured == []
 
 
 def test_preprocess_and_result_adapter():

@@ -9,6 +9,7 @@ import os
 import queue
 import threading
 import time
+from collections.abc import Sequence
 from typing import Any
 
 import torch
@@ -102,6 +103,89 @@ def _load_moss_tts_local_processor(model_path: str, *, device: str) -> Any:
             # would corrupt the quantizer codebooks.
             audio_tokenizer.to(device)
     return processor
+
+
+def _normalize_quantizer_compile_warmup_seconds(
+    warmup_seconds: Sequence[float] | None,
+) -> tuple[float, ...]:
+    source = (1.0,) if warmup_seconds is None else warmup_seconds
+    values = tuple(float(value) for value in source)
+    if not values:
+        raise RuntimeError("MOSS-TTS Local quantizer torch.compile warmup is empty")
+    for value in values:
+        if value <= 0:
+            raise RuntimeError(
+                "MOSS-TTS Local quantizer torch.compile warmup seconds "
+                "must be positive"
+            )
+    return values
+
+
+def _quantizer_compile_sample_rate(processor: Any) -> int:
+    sample_rate = int(processor.audio_tokenizer.sampling_rate)
+    if sample_rate <= 0:
+        raise RuntimeError(
+            "MOSS-TTS Local quantizer torch.compile warmup sample rate must be positive"
+        )
+    return sample_rate
+
+
+def _quantizer_compile_channels(processor: Any) -> int:
+    channels = int(processor.audio_tokenizer.number_channels)
+    if channels <= 0:
+        raise RuntimeError(
+            "MOSS-TTS Local quantizer torch.compile warmup channels must be positive"
+        )
+    return channels
+
+
+def _warmup_moss_tts_local_quantizer(
+    processor: Any,
+    warmup_seconds: Sequence[float],
+) -> None:
+    encode_audios = processor.encode_audios_from_wav
+    if not callable(encode_audios):
+        raise RuntimeError(
+            "MOSS-TTS Local processor.encode_audios_from_wav is unavailable"
+        )
+    sample_rate = _quantizer_compile_sample_rate(processor)
+    channels = _quantizer_compile_channels(processor)
+    for seconds in warmup_seconds:
+        num_samples = max(1, int(round(float(seconds) * sample_rate)))
+        wav = torch.zeros((channels, num_samples), dtype=torch.float32)
+        encode_audios([wav], sample_rate)
+
+
+def _compile_moss_tts_local_quantizer(
+    processor: Any,
+    *,
+    compile_mode: str | None = "default",
+    warmup_seconds: Sequence[float] | None = None,
+) -> None:
+    audio_tokenizer = processor.audio_tokenizer
+    quantizer = audio_tokenizer.quantizer
+    if not callable(quantizer):
+        raise RuntimeError("MOSS-TTS Local audio_tokenizer quantizer is not callable")
+
+    compile_kwargs: dict[str, Any] = {"fullgraph": False, "dynamic": True}
+    if compile_mode is not None:
+        compile_kwargs["mode"] = compile_mode
+    normalized_warmup = _normalize_quantizer_compile_warmup_seconds(warmup_seconds)
+
+    try:
+        audio_tokenizer.quantizer = torch.compile(quantizer, **compile_kwargs)
+        _warmup_moss_tts_local_quantizer(processor, normalized_warmup)
+    except Exception:
+        audio_tokenizer.quantizer = quantizer
+        logger.exception("MOSS-TTS Local quantizer torch.compile failed")
+        raise
+
+    logger.info(
+        "Enabled MOSS-TTS Local quantizer torch.compile "
+        "(mode=%s, warmup_seconds=%s)",
+        compile_mode,
+        list(normalized_warmup),
+    )
 
 
 class _BatchedReferenceEncoder:
@@ -409,6 +493,9 @@ def create_preprocessing_executor(
     ref_audio_cache: bool = True,
     ref_audio_cache_max_items: int = 256,
     ref_audio_cache_max_bytes: int = 64 * 1024 * 1024,
+    enable_quantizer_torch_compile: bool = False,
+    quantizer_torch_compile_mode: str | None = "default",
+    quantizer_torch_compile_warmup_seconds: Sequence[float] | None = None,
 ) -> SimpleScheduler:
     # MOSS_REF_AUDIO_CACHE=0 disables the cache at startup (ops kill switch / A-B
     # toggle) without a config edit; unset => kwarg default.
@@ -423,6 +510,12 @@ def create_preprocessing_executor(
         )
     device = _resolve_codec_device(device, gpu_id)
     processor = _load_moss_tts_local_processor(model_path, device=device)
+    if enable_quantizer_torch_compile:
+        _compile_moss_tts_local_quantizer(
+            processor,
+            compile_mode=quantizer_torch_compile_mode,
+            warmup_seconds=quantizer_torch_compile_warmup_seconds,
+        )
     reference_encoder: Any = _BatchedReferenceEncoder(
         processor,
         max_batch_size=encode_batch_size,

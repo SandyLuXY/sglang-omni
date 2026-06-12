@@ -20,6 +20,9 @@ def _stages(*, codec_device: str) -> list[StageConfig]:
             factory=f"{_PKG}.stages.create_preprocessing_executor",
             factory_args={
                 "device": codec_device,
+                "enable_quantizer_torch_compile": False,
+                "quantizer_torch_compile_mode": "default",
+                "quantizer_torch_compile_warmup_seconds": [1.0],
                 "ref_audio_cache": True,
                 "ref_audio_cache_max_items": 256,
                 "ref_audio_cache_max_bytes": 64 * 1024 * 1024,
