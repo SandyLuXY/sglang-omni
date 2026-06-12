@@ -183,7 +183,7 @@ def test_pipeline_stage_wiring():
     assert stages["preprocessing"].process == "pipeline"
     assert stages["preprocessing"].gpu == 0
     assert stages["preprocessing"].factory_args["device"] == "cuda:1"
-    assert stages["preprocessing"].factory_args["ref_audio_cache_max_items"] == 256
+    assert stages["preprocessing"].factory_args["ref_audio_cache_max_items"] == 1024
     assert stages["tts_engine"].process == "pipeline"
     assert stages["tts_engine"].gpu == 0
     assert stages["vocoder"].process == "pipeline"
@@ -202,7 +202,7 @@ def test_pipeline_stage_wiring():
     assert colocated_stages["preprocessing"].factory_args["device"] == "cuda:0"
     assert (
         colocated_stages["preprocessing"].factory_args["ref_audio_cache_max_items"]
-        == 256
+        == 1024
     )
     assert colocated_stages["vocoder"].factory_args["device"] == "cuda:0"
 
@@ -620,7 +620,7 @@ def test_batched_reference_encoder_coalesces_and_isolates_errors():
     assert [-1] in calls
 
 
-def test_batched_reference_encoder_wav_fallback_keeps_mixed_length_batch():
+def test_batched_reference_encoder_wav_fallback_buckets_by_length():
     import threading
 
     from sglang_omni.models.moss_tts_local.stages import _BatchedReferenceEncoder
@@ -676,9 +676,31 @@ def test_batched_reference_encoder_wav_fallback_keeps_mixed_length_batch():
     assert all(
         target_sr == _FakeMossAudioConfig.sampling_rate for _, target_sr in loaded
     )
-    assert len(calls) == 1
-    assert sorted(calls[0]["lengths"]) == [8, 8, 13]
-    assert sorted(calls[0]["markers"]) == [11, 22, 33]
+    assert any(call["lengths"] == [8, 8] for call in calls)
+    assert any(call["lengths"] == [13] for call in calls)
+    assert not any(len(set(call["lengths"])) > 1 for call in calls)
+    assert sorted(marker for call in calls for marker in call["markers"]) == [
+        11,
+        22,
+        33,
+    ]
+
+
+def test_batched_reference_encoder_wav_requires_explicit_sample_rate():
+    from sglang_omni.models.moss_tts_local.stages import _BatchedReferenceEncoder
+
+    class _FakeCodecProcessor:
+        def encode_audios_from_wav(self, wavs, sampling_rate):
+            raise AssertionError("invalid processor config must fail before encode")
+
+        def encode_audios_from_path(self, paths):
+            raise AssertionError("invalid processor config must not fall back to paths")
+
+    encoder = _BatchedReferenceEncoder(
+        _FakeCodecProcessor(), max_batch_size=1, max_batch_wait_ms=0
+    )
+    with pytest.raises(RuntimeError, match="sampling_rate"):
+        encoder.encode("voice.wav")
 
 
 def test_batched_reference_encoder_preserves_order_and_deduplicates_paths():
@@ -870,7 +892,7 @@ def test_batched_reference_encoder_load_failure_falls_back_to_batched_path_encod
     assert [int(result[0, 0]) for result in results] == [11, 22]
 
 
-def test_batched_reference_encoder_prefers_path_encode_when_wav_api_fails():
+def test_batched_reference_encoder_wav_failure_falls_back_to_path_encode():
     import threading
 
     from sglang_omni.models.moss_tts_local.stages import _BatchedReferenceEncoder
@@ -915,9 +937,9 @@ def test_batched_reference_encoder_prefers_path_encode_when_wav_api_fails():
     for thread in threads:
         thread.join(timeout=10)
 
-    assert wav_calls == []
-    assert len(path_calls) == 1
-    assert set(path_calls[0]) == {"first.wav", "second.wav"}
+    assert any(call == [11, 22] or call == [22, 11] for call in wav_calls)
+    assert all(len(call) == 1 for call in path_calls)
+    assert {call[0] for call in path_calls} == {"first.wav", "second.wav"}
     assert [int(result[0, 0]) for result in results] == [11, 22]
 
 
@@ -1298,6 +1320,17 @@ def test_cached_reference_encoder_duration_gate(tmp_path, monkeypatch):
         sample_rate = 48000
 
     monkeypatch.setattr(torchaudio, "info", lambda path: _FakeInfo(), raising=False)
+    cache_key_count = 0
+
+    def fail_cache_key(path):
+        nonlocal cache_key_count
+        cache_key_count += 1
+        raise AssertionError("duration gate must run before cache-key hashing")
+
+    monkeypatch.setattr(
+        "sglang_omni.models.moss_tts_local.stages._reference_path_cache_key",
+        fail_cache_key,
+    )
 
     enc = CachedReferenceEncoder(_FakeBatched(), max_items=256, max_bytes=64 << 20)
 
@@ -1307,6 +1340,7 @@ def test_cached_reference_encoder_duration_gate(tmp_path, monkeypatch):
         enc.encode(str(ref))
 
     assert encode_count == 0, "oversized reference must not reach the codec"
+    assert cache_key_count == 0, "oversized reference must not reach cache-key hashing"
     assert enc.stats()["entries"] == 0
     assert len(enc._inflight) == 0
 

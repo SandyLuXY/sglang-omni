@@ -9,6 +9,7 @@ import os
 import queue
 import threading
 import time
+from pathlib import Path
 from typing import Any
 
 import torch
@@ -110,12 +111,11 @@ class _BatchedReferenceEncoder:
     Each request needs its reference run through the ~1B-param codec encoder
     (~0.25 GPU-seconds). The preprocessing workers call :meth:`encode`
     concurrently; a single daemon thread drains the queue and encodes up to
-    ``max_batch_size`` files through the processor's path API. The upstream
-    MOSS Local processor already loads/resamples paths and forwards the whole
-    variable-length set through padded ``batch_encode``; splitting by exact
-    waveform length turns high-concurrency batches into many tiny codec calls.
+    ``max_batch_size`` files. When waveform encoding is available, it
+    loads/resamples paths and batches only exact-length waveforms so the
+    non-causal codec encoder never sees padding from shorter references.
     Failures fall back to per-item encodes so one bad file only fails its own
-    request.
+    request; processors without a waveform API use the path API fallback.
     """
 
     # Mirrors the Higgs reference-audio cap: bounds encoder runtime and memory.
@@ -159,6 +159,9 @@ class _BatchedReferenceEncoder:
         """Encode one reference file; blocks until its batch completes."""
         path = str(path)
         self._check_reference_duration(path)
+        return self._encode_checked_path(path)
+
+    def _encode_checked_path(self, path: str) -> torch.Tensor:
         future: concurrent.futures.Future = concurrent.futures.Future()
         self._queue.put((path, future))
         return future.result(timeout=self.ENCODE_TIMEOUT_S)
@@ -177,39 +180,23 @@ class _BatchedReferenceEncoder:
 
     def _target_sample_rate(self) -> int:
         try:
-            audio_tokenizer = getattr(self._processor, "audio_tokenizer", None)
-        except Exception:
-            audio_tokenizer = None
-        try:
             model_config = getattr(self._processor, "model_config", None)
         except Exception:
             model_config = None
         try:
-            tokenizer_config = getattr(audio_tokenizer, "config", None)
+            value = getattr(model_config, "sampling_rate", None)
         except Exception:
-            tokenizer_config = None
-        owners = (
-            model_config,
-            audio_tokenizer,
-            tokenizer_config,
-        )
-        for owner in owners:
-            if owner is None:
-                continue
-            for attr in ("sampling_rate", "sample_rate"):
-                try:
-                    value = getattr(owner, attr, None)
-                except Exception:
-                    continue
-                if value is None:
-                    continue
-                try:
-                    sample_rate = int(value)
-                except (TypeError, ValueError):
-                    continue
-                if sample_rate > 0:
-                    return sample_rate
-        return 48000
+            value = None
+        try:
+            sample_rate = int(value)
+        except (TypeError, ValueError):
+            sample_rate = 0
+        if sample_rate <= 0:
+            raise RuntimeError(
+                "MOSS-TTS Local processor.model_config.sampling_rate must be "
+                "a positive integer for waveform reference encoding"
+            )
+        return sample_rate
 
     def _load_reference_wav(self, path: str, target_sr: int) -> torch.Tensor:
         import torchaudio
@@ -301,42 +288,63 @@ class _BatchedReferenceEncoder:
 
     def _encode_wavs_from_paths_with_fallback(self, paths: list[str]) -> dict[str, Any]:
         """Fallback for processors that expose wav encoding but no path API."""
-        target_sr = self._target_sample_rate()
+        try:
+            target_sr = self._target_sample_rate()
+        except Exception as exc:
+            return {path: exc for path in paths}
         results: dict[str, Any] = {}
-        loaded_paths: list[str] = []
-        wavs: list[torch.Tensor] = []
+        loaded: list[tuple[str, torch.Tensor]] = []
+        load_failed_paths: list[str] = []
         for path in paths:
             try:
-                wavs.append(self._load_reference_wav(path, target_sr))
-                loaded_paths.append(path)
+                loaded.append((path, self._load_reference_wav(path, target_sr)))
             except Exception as exc:
                 results[path] = exc
+                load_failed_paths.append(path)
 
-        if not loaded_paths:
+        if load_failed_paths and self._path_encoder() is not None:
+            results.update(self._encode_paths_with_fallback(load_failed_paths))
+
+        if not loaded:
             return results
 
-        try:
-            results.update(self._encode_wavs(loaded_paths, wavs, target_sr))
-        except Exception:
-            logger.exception(
-                "MOSS-TTS Local batched waveform reference encode failed; "
-                "retrying per item"
-            )
-            for path, wav in zip(loaded_paths, wavs):
-                try:
-                    results[path] = self._encode_one_wav(path, wav, target_sr)
-                except Exception as exc:
-                    results[path] = exc
+        buckets: dict[int, list[tuple[str, torch.Tensor]]] = {}
+        for path, wav in loaded:
+            buckets.setdefault(int(wav.shape[-1]), []).append((path, wav))
+
+        for bucket in buckets.values():
+            bucket_paths = [path for path, _ in bucket]
+            bucket_wavs = [wav for _, wav in bucket]
+            try:
+                results.update(self._encode_wavs(bucket_paths, bucket_wavs, target_sr))
+            except Exception:
+                logger.exception(
+                    "MOSS-TTS Local batched waveform reference encode failed; "
+                    "retrying per item"
+                )
+                for path, wav in bucket:
+                    try:
+                        results[path] = self._encode_one_wav(path, wav, target_sr)
+                    except Exception as exc:
+                        if self._path_encoder() is None:
+                            results[path] = exc
+                            continue
+                        try:
+                            results[path] = self._encode_one_path(path)
+                        except Exception as path_exc:
+                            results[path] = path_exc
         return results
+
+    def _encode_path_batch(self, paths: list[str]) -> dict[str, Any]:
+        if self._wav_encoder() is not None:
+            return self._encode_wavs_from_paths_with_fallback(paths)
+        return self._encode_paths_with_fallback(paths)
 
     def _worker(self) -> None:
         while True:
             batch = self._drain_batch()
             unique_paths = list(dict.fromkeys(path for path, _ in batch))
-            if self._path_encoder() is not None:
-                results = self._encode_paths_with_fallback(unique_paths)
-            else:
-                results = self._encode_wavs_from_paths_with_fallback(unique_paths)
+            results = self._encode_path_batch(unique_paths)
             for path, future in batch:
                 outcome = results.get(path)
                 if isinstance(outcome, Exception):
@@ -394,35 +402,61 @@ class CachedReferenceEncoder:
 
     def encode(self, path: str) -> torch.Tensor:
         path = str(path)
+        duration_key = self._duration_memo_key(path)
+        self._check_reference_duration_once(path, duration_key)
         # trust_stat left False (review feedback): keep the sentinel byte-read so a
         # same-size+mtime+ctime overwrite cannot stale-hit. The flag stays available
         # in reference_path_cache_key for deployments that guarantee immutable refs.
         key = _reference_path_cache_key(path)
         if key is None:
-            _BatchedReferenceEncoder._check_reference_duration(path)
-            return self._encoder.encode(path)  # uncacheable (URL/missing) -> bypass
-        # The key is computed first only to memoize the duration gate by stable
-        # file content. The gate still runs before cache/inflight access.
-        self._check_reference_duration_once(path, key)
+            return self._encode_duration_checked_path(path)
         return self._cached_encode(
             key,
-            lambda: self._encoder.encode(path),
+            lambda: self._encode_duration_checked_path(path),
             desc=repr(path),
             # TOCTOU re-stat: skip the put if the file changed during the encode.
             revalidate=lambda: _reference_path_cache_key(path) == key,
         )
 
-    def _check_reference_duration_once(self, path: str, key: str) -> None:
-        with self._lock:
-            if key in self._duration_checked_keys:
-                self._duration_checked_keys.pop(key)
-                self._duration_checked_keys[key] = None
-                return
+    @staticmethod
+    def _duration_memo_key(path: str) -> str | None:
+        try:
+            resolved = Path(path).expanduser().resolve()
+            stat_result = resolved.stat()
+            if not resolved.is_file():
+                return None
+        except OSError:
+            return None
+        return (
+            f"{resolved}:"
+            f"{stat_result.st_size}:"
+            f"{stat_result.st_mtime_ns}:"
+            f"{stat_result.st_ctime_ns}"
+        )
+
+    def _encode_duration_checked_path(self, path: str) -> torch.Tensor:
+        checked_encode = getattr(self._encoder, "_encode_checked_path", None)
+        if callable(checked_encode):
+            return checked_encode(path)
+        return self._encoder.encode(path)
+
+    def _check_reference_duration_once(self, path: str, key: str | None) -> None:
+        if key is not None:
+            with self._lock:
+                if key in self._duration_checked_keys:
+                    self._duration_checked_keys.pop(key)
+                    self._duration_checked_keys[key] = None
+                    return
         _BatchedReferenceEncoder._check_reference_duration(path)
-        with self._lock:
-            self._duration_checked_keys[key] = None
-            while len(self._duration_checked_keys) > self._duration_checked_max_items:
-                self._duration_checked_keys.pop(next(iter(self._duration_checked_keys)))
+        if key is not None:
+            with self._lock:
+                self._duration_checked_keys[key] = None
+                while (
+                    len(self._duration_checked_keys) > self._duration_checked_max_items
+                ):
+                    self._duration_checked_keys.pop(
+                        next(iter(self._duration_checked_keys))
+                    )
 
     def _cached_encode(
         self, key: str, encode_fn, *, desc: str, revalidate=None
