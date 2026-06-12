@@ -183,6 +183,7 @@ def test_pipeline_stage_wiring():
     assert stages["preprocessing"].process == "pipeline"
     assert stages["preprocessing"].gpu == 0
     assert stages["preprocessing"].factory_args["device"] == "cuda:1"
+    assert stages["preprocessing"].factory_args["ref_audio_cache_max_items"] == 1024
     assert stages["tts_engine"].process == "pipeline"
     assert stages["tts_engine"].gpu == 0
     assert stages["vocoder"].process == "pipeline"
@@ -199,6 +200,10 @@ def test_pipeline_stage_wiring():
     )
     colocated_stages = {stage.name: stage for stage in colocated.stages}
     assert colocated_stages["preprocessing"].factory_args["device"] == "cuda:0"
+    assert (
+        colocated_stages["preprocessing"].factory_args["ref_audio_cache_max_items"]
+        == 1024
+    )
     assert colocated_stages["vocoder"].factory_args["device"] == "cuda:0"
 
 
@@ -615,7 +620,7 @@ def test_batched_reference_encoder_coalesces_and_isolates_errors():
     assert [-1] in calls
 
 
-def test_batched_reference_encoder_buckets_by_resampled_waveform_length():
+def test_batched_reference_encoder_wav_fallback_keeps_mixed_length_batch():
     import threading
 
     from sglang_omni.models.moss_tts_local.stages import _BatchedReferenceEncoder
@@ -671,9 +676,9 @@ def test_batched_reference_encoder_buckets_by_resampled_waveform_length():
     assert all(
         target_sr == _FakeMossAudioConfig.sampling_rate for _, target_sr in loaded
     )
-    assert any(call["lengths"] == [8, 8] for call in calls)
-    assert any(call["lengths"] == [13] for call in calls)
-    assert not any(len(set(call["lengths"])) > 1 for call in calls)
+    assert len(calls) == 1
+    assert sorted(calls[0]["lengths"]) == [8, 8, 13]
+    assert sorted(calls[0]["markers"]) == [11, 22, 33]
 
 
 def test_batched_reference_encoder_preserves_order_and_deduplicates_paths():
@@ -865,7 +870,7 @@ def test_batched_reference_encoder_load_failure_falls_back_to_batched_path_encod
     assert [int(result[0, 0]) for result in results] == [11, 22]
 
 
-def test_batched_reference_encoder_wav_failure_falls_back_to_path_encode():
+def test_batched_reference_encoder_prefers_path_encode_when_wav_api_fails():
     import threading
 
     from sglang_omni.models.moss_tts_local.stages import _BatchedReferenceEncoder
@@ -910,9 +915,9 @@ def test_batched_reference_encoder_wav_failure_falls_back_to_path_encode():
     for thread in threads:
         thread.join(timeout=10)
 
-    assert any(call == [11, 22] or call == [22, 11] for call in wav_calls)
-    assert all(len(call) == 1 for call in path_calls)
-    assert {call[0] for call in path_calls} == {"first.wav", "second.wav"}
+    assert wav_calls == []
+    assert len(path_calls) == 1
+    assert set(path_calls[0]) == {"first.wav", "second.wav"}
     assert [int(result[0, 0]) for result in results] == [11, 22]
 
 
@@ -1304,6 +1309,43 @@ def test_cached_reference_encoder_duration_gate(tmp_path, monkeypatch):
     assert encode_count == 0, "oversized reference must not reach the codec"
     assert enc.stats()["entries"] == 0
     assert len(enc._inflight) == 0
+
+
+def test_cached_reference_encoder_duration_gate_memoized_by_content_key(
+    tmp_path, monkeypatch
+):
+    import torchaudio
+
+    from sglang_omni.models.moss_tts_local.stages import CachedReferenceEncoder
+
+    ref = tmp_path / "short.wav"
+    ref.write_bytes(b"short audio")
+    info_count = 0
+
+    class _FakeInfo:
+        num_frames = 2 * 48000
+        sample_rate = 48000
+
+    def fake_info(path):
+        nonlocal info_count
+        info_count += 1
+        return _FakeInfo()
+
+    class _FakeBatched:
+        def encode(self, path: str) -> torch.Tensor:
+            return torch.zeros((5, N_VQ), dtype=torch.long)
+
+    monkeypatch.setattr(torchaudio, "info", fake_info, raising=False)
+
+    enc = CachedReferenceEncoder(_FakeBatched(), max_items=256, max_bytes=64 << 20)
+
+    enc.encode(str(ref))
+    enc.encode(str(ref))
+    assert info_count == 1
+
+    ref.write_bytes(b"short audio with a changed content key")
+    enc.encode(str(ref))
+    assert info_count == 2
 
 
 # ---------------------------------------------------------------------------

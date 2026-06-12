@@ -110,9 +110,12 @@ class _BatchedReferenceEncoder:
     Each request needs its reference run through the ~1B-param codec encoder
     (~0.25 GPU-seconds). The preprocessing workers call :meth:`encode`
     concurrently; a single daemon thread drains the queue and encodes up to
-    ``max_batch_size`` files, loads/resamples them, and batches only
-    same-length waveforms in one ``batch_encode`` forward. Failures fall back
-    to per-item encodes so one bad file only fails its own request.
+    ``max_batch_size`` files through the processor's path API. The upstream
+    MOSS Local processor already loads/resamples paths and forwards the whole
+    variable-length set through padded ``batch_encode``; splitting by exact
+    waveform length turns high-concurrency batches into many tiny codec calls.
+    Failures fall back to per-item encodes so one bad file only fails its own
+    request.
     """
 
     # Mirrors the Higgs reference-audio cap: bounds encoder runtime and memory.
@@ -162,16 +165,12 @@ class _BatchedReferenceEncoder:
 
     def _drain_batch(self) -> list[tuple[str, concurrent.futures.Future]]:
         batch = [self._queue.get()]
-        deadline = time.monotonic() + self._max_wait_s
         while len(batch) < self._max_batch_size:
             try:
-                if self._max_wait_s <= 0:
-                    batch.append(self._queue.get_nowait())
+                if self._max_wait_s > 0:
+                    batch.append(self._queue.get(timeout=self._max_wait_s))
                 else:
-                    remaining = deadline - time.monotonic()
-                    if remaining <= 0:
-                        break
-                    batch.append(self._queue.get(timeout=remaining))
+                    batch.append(self._queue.get_nowait())
             except queue.Empty:
                 break
         return batch
@@ -220,10 +219,6 @@ class _BatchedReferenceEncoder:
             wav = torchaudio.functional.resample(wav, int(sr), target_sr)
         return wav
 
-    @staticmethod
-    def _waveform_length(wav: torch.Tensor) -> int:
-        return int(wav.shape[-1])
-
     def _wav_encoder(self) -> Any | None:
         try:
             encoder = getattr(self._processor, "encode_audios_from_wav", None)
@@ -231,8 +226,18 @@ class _BatchedReferenceEncoder:
             return None
         return encoder if callable(encoder) else None
 
+    def _path_encoder(self) -> Any | None:
+        try:
+            encoder = getattr(self._processor, "encode_audios_from_path", None)
+        except Exception:
+            return None
+        return encoder if callable(encoder) else None
+
     def _encode_paths(self, paths: list[str]) -> dict[str, Any]:
-        encoded = list(self._processor.encode_audios_from_path(paths))
+        path_encoder = self._path_encoder()
+        if path_encoder is None:
+            raise RuntimeError("MOSS-TTS Local processor cannot encode paths")
+        encoded = list(path_encoder(paths))
         if len(encoded) != len(paths):
             raise RuntimeError(
                 "MOSS-TTS Local reference encode returned "
@@ -271,7 +276,10 @@ class _BatchedReferenceEncoder:
         return dict(zip(paths, encoded))
 
     def _encode_one_path(self, path: str) -> Any:
-        encoded = list(self._processor.encode_audios_from_path([path]))
+        path_encoder = self._path_encoder()
+        if path_encoder is None:
+            raise RuntimeError("MOSS-TTS Local processor cannot encode paths")
+        encoded = list(path_encoder([path]))
         if len(encoded) != 1:
             raise RuntimeError(
                 "MOSS-TTS Local reference encode returned "
@@ -291,51 +299,44 @@ class _BatchedReferenceEncoder:
             )
         return encoded[0]
 
+    def _encode_wavs_from_paths_with_fallback(self, paths: list[str]) -> dict[str, Any]:
+        """Fallback for processors that expose wav encoding but no path API."""
+        target_sr = self._target_sample_rate()
+        results: dict[str, Any] = {}
+        loaded_paths: list[str] = []
+        wavs: list[torch.Tensor] = []
+        for path in paths:
+            try:
+                wavs.append(self._load_reference_wav(path, target_sr))
+                loaded_paths.append(path)
+            except Exception as exc:
+                results[path] = exc
+
+        if not loaded_paths:
+            return results
+
+        try:
+            results.update(self._encode_wavs(loaded_paths, wavs, target_sr))
+        except Exception:
+            logger.exception(
+                "MOSS-TTS Local batched waveform reference encode failed; "
+                "retrying per item"
+            )
+            for path, wav in zip(loaded_paths, wavs):
+                try:
+                    results[path] = self._encode_one_wav(path, wav, target_sr)
+                except Exception as exc:
+                    results[path] = exc
+        return results
+
     def _worker(self) -> None:
         while True:
             batch = self._drain_batch()
             unique_paths = list(dict.fromkeys(path for path, _ in batch))
-            results: dict[str, Any] = {}
-            if self._wav_encoder() is None:
+            if self._path_encoder() is not None:
                 results = self._encode_paths_with_fallback(unique_paths)
             else:
-                target_sr = self._target_sample_rate()
-                loaded: dict[str, tuple[torch.Tensor, int]] = {}
-                try:
-                    for path in unique_paths:
-                        wav = self._load_reference_wav(path, target_sr)
-                        loaded[path] = (wav, self._waveform_length(wav))
-                except Exception:
-                    logger.exception(
-                        "MOSS-TTS Local reference waveform load failed; "
-                        "falling back to path encode"
-                    )
-                    results = self._encode_paths_with_fallback(unique_paths)
-                else:
-                    buckets: dict[int, list[str]] = {}
-                    for path in unique_paths:
-                        buckets.setdefault(loaded[path][1], []).append(path)
-                    for bucket_paths in buckets.values():
-                        wavs = [loaded[path][0] for path in bucket_paths]
-                        try:
-                            results.update(
-                                self._encode_wavs(bucket_paths, wavs, target_sr)
-                            )
-                        except Exception:
-                            logger.exception(
-                                "MOSS-TTS Local batched reference encode failed; "
-                                "retrying per item"
-                            )
-                            for path, wav in zip(bucket_paths, wavs):
-                                try:
-                                    results[path] = self._encode_one_wav(
-                                        path, wav, target_sr
-                                    )
-                                except Exception:
-                                    try:
-                                        results[path] = self._encode_one_path(path)
-                                    except Exception as exc:
-                                        results[path] = exc
+                results = self._encode_wavs_from_paths_with_fallback(unique_paths)
             for path, future in batch:
                 outcome = results.get(path)
                 if isinstance(outcome, Exception):
@@ -388,18 +389,21 @@ class CachedReferenceEncoder:
         self._misses = 0
         self._merged = 0
         self._last_log_time: float = 0.0
+        self._duration_checked_keys: dict[str, None] = {}
+        self._duration_checked_max_items = max_items * 4
 
     def encode(self, path: str) -> torch.Tensor:
         path = str(path)
-        # Note(Jiaxin): duration gate runs first — a >100 s ref must never reach
-        # the cache or the inflight dict.
-        _BatchedReferenceEncoder._check_reference_duration(path)
         # trust_stat left False (review feedback): keep the sentinel byte-read so a
         # same-size+mtime+ctime overwrite cannot stale-hit. The flag stays available
         # in reference_path_cache_key for deployments that guarantee immutable refs.
         key = _reference_path_cache_key(path)
         if key is None:
+            _BatchedReferenceEncoder._check_reference_duration(path)
             return self._encoder.encode(path)  # uncacheable (URL/missing) -> bypass
+        # The key is computed first only to memoize the duration gate by stable
+        # file content. The gate still runs before cache/inflight access.
+        self._check_reference_duration_once(path, key)
         return self._cached_encode(
             key,
             lambda: self._encoder.encode(path),
@@ -407,6 +411,18 @@ class CachedReferenceEncoder:
             # TOCTOU re-stat: skip the put if the file changed during the encode.
             revalidate=lambda: _reference_path_cache_key(path) == key,
         )
+
+    def _check_reference_duration_once(self, path: str, key: str) -> None:
+        with self._lock:
+            if key in self._duration_checked_keys:
+                self._duration_checked_keys.pop(key)
+                self._duration_checked_keys[key] = None
+                return
+        _BatchedReferenceEncoder._check_reference_duration(path)
+        with self._lock:
+            self._duration_checked_keys[key] = None
+            while len(self._duration_checked_keys) > self._duration_checked_max_items:
+                self._duration_checked_keys.pop(next(iter(self._duration_checked_keys)))
 
     def _cached_encode(
         self, key: str, encode_fn, *, desc: str, revalidate=None
