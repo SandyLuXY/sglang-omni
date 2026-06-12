@@ -368,9 +368,7 @@ def test_quantizer_torch_compile_wraps_forward_and_warms_up(monkeypatch):
             self.warmup_shapes.append(tuple(wavs[0].shape))
             input_length = torch.tensor([wavs[0].shape[-1]])
             return [
-                self.audio_tokenizer.quantizer(
-                    wavs[0], input_length, n_quantizers=None
-                )
+                self.audio_tokenizer.quantizer(wavs[0], input_length, n_quantizers=None)
             ]
 
     compile_calls = []
