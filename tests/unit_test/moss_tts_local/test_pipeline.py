@@ -332,56 +332,82 @@ def test_create_preprocessing_executor_env_toggle(monkeypatch):
     )
 
 
-def test_quantizer_torch_compile_wraps_forward_and_warms_up(monkeypatch):
+class _RecordingQuantizer(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.calls = 0
+        self.compiled_calls = 0
+        self.last_n_quantizers = "unset"
+
+    @torch.no_grad()
+    def forward(self, z, input_length, n_quantizers=None):
+        del input_length
+        self.calls += 1
+        self.last_n_quantizers = n_quantizers
+        return z
+
+
+class _CompiledQuantizer(torch.nn.Module):
+    def __init__(self, eager_quantizer):
+        super().__init__()
+        self.eager_quantizer = eager_quantizer
+
+    def forward(self, *args, **kwargs):
+        self.eager_quantizer.compiled_calls += 1
+        return self.eager_quantizer(*args, **kwargs)
+
+
+class _WarmupFailingQuantizer(torch.nn.Module):
+    def forward(self, *args, **kwargs):
+        del args, kwargs
+        raise RuntimeError("warmup failed")
+
+
+class _FakeAudioTokenizer(torch.nn.Module):
+    def __init__(
+        self,
+        *,
+        number_channels: int = 1,
+        sampling_rate: int = 48000,
+    ):
+        super().__init__()
+        self.number_channels = number_channels
+        self.sampling_rate = sampling_rate
+        self.quantizer = _RecordingQuantizer()
+
+
+class _FakeQuantizerProcessor:
+    def __init__(
+        self,
+        *,
+        number_channels: int = 1,
+        sampling_rate: int = 48000,
+    ):
+        self.audio_tokenizer = _FakeAudioTokenizer(
+            number_channels=number_channels,
+            sampling_rate=sampling_rate,
+        )
+        self.warmup_shapes = []
+
+    def encode_audios_from_wav(self, wavs, sample_rate):
+        assert sample_rate == self.audio_tokenizer.sampling_rate
+        self.warmup_shapes.append(tuple(wavs[0].shape))
+        input_length = torch.tensor([wavs[0].shape[-1]])
+        return [
+            self.audio_tokenizer.quantizer(wavs[0], input_length, n_quantizers=None)
+        ]
+
+
+def test_quantizer_torch_compile_replaces_module_and_warms_up(monkeypatch):
     from sglang_omni.models.moss_tts_local import stages
 
-    class _FakeQuantizer(torch.nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.calls = 0
-            self.compiled_calls = 0
-            self.last_n_quantizers = "unset"
-
-        @torch.no_grad()
-        def forward(self, z, input_length, n_quantizers=None):
-            del input_length
-            self.calls += 1
-            self.last_n_quantizers = n_quantizers
-            return z
-
-    class _FakeAudioTokenizer(torch.nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.quantizer = _FakeQuantizer()
-
-    class _FakeModelConfig:
-        sampling_rate = 24000
-
-    class _FakeProcessor:
-        def __init__(self):
-            self.audio_tokenizer = _FakeAudioTokenizer()
-            self.model_config = _FakeModelConfig()
-            self.warmup_shapes = []
-
-        def encode_audios_from_wav(self, wavs, sample_rate):
-            assert sample_rate == 24000
-            self.warmup_shapes.append(tuple(wavs[0].shape))
-            input_length = torch.tensor([wavs[0].shape[-1]])
-            return [
-                self.audio_tokenizer.quantizer(wavs[0], input_length, n_quantizers=None)
-            ]
-
     compile_calls = []
-    processor = _FakeProcessor()
+    processor = _FakeQuantizerProcessor(sampling_rate=24000)
+    eager_quantizer = processor.audio_tokenizer.quantizer
 
     def fake_compile(target, **kwargs):
         compile_calls.append((target, kwargs))
-
-        def wrapped(*args, **inner_kwargs):
-            processor.audio_tokenizer.quantizer.compiled_calls += 1
-            return target(*args, **inner_kwargs)
-
-        return wrapped
+        return _CompiledQuantizer(target)
 
     monkeypatch.setattr(torch, "compile", fake_compile)
 
@@ -393,48 +419,23 @@ def test_quantizer_torch_compile_wraps_forward_and_warms_up(monkeypatch):
 
     assert len(compile_calls) == 1
     target, kwargs = compile_calls[0]
-    assert getattr(target, "__name__", "") == "forward"
+    assert target is eager_quantizer
     assert kwargs == {
         "fullgraph": False,
         "dynamic": True,
         "mode": "reduce-overhead",
     }
+    assert isinstance(processor.audio_tokenizer.quantizer, _CompiledQuantizer)
     assert processor.warmup_shapes == [(1, 24000), (1, 72000)]
-    assert processor.audio_tokenizer.quantizer.calls == 2
-    assert processor.audio_tokenizer.quantizer.compiled_calls == 2
-    assert processor.audio_tokenizer.quantizer.last_n_quantizers is None
+    assert eager_quantizer.calls == 2
+    assert eager_quantizer.compiled_calls == 2
+    assert eager_quantizer.last_n_quantizers is None
 
 
 def test_quantizer_torch_compile_warmup_uses_tokenizer_channels(monkeypatch):
     from sglang_omni.models.moss_tts_local import stages
 
-    class _FakeQuantizer(torch.nn.Module):
-        def forward(self, z, input_length, n_quantizers=None):
-            del input_length, n_quantizers
-            return z
-
-    class _FakeAudioTokenizer(torch.nn.Module):
-        number_channels = 2
-        sampling_rate = 48000
-
-        def __init__(self):
-            super().__init__()
-            self.quantizer = _FakeQuantizer()
-
-    class _FakeProcessor:
-        def __init__(self):
-            self.audio_tokenizer = _FakeAudioTokenizer()
-            self.warmup_shapes = []
-
-        def encode_audios_from_wav(self, wavs, sample_rate):
-            assert sample_rate == 48000
-            self.warmup_shapes.append(tuple(wavs[0].shape))
-            if tuple(wavs[0].shape) != (2, 48000):
-                raise AssertionError(f"bad warmup shape: {tuple(wavs[0].shape)}")
-            input_length = torch.tensor([wavs[0].shape[-1]])
-            return [self.audio_tokenizer.quantizer(wavs[0], input_length)]
-
-    processor = _FakeProcessor()
+    processor = _FakeQuantizerProcessor(number_channels=2, sampling_rate=48000)
     monkeypatch.setattr(torch, "compile", lambda target, **kwargs: target)
 
     stages._compile_moss_tts_local_quantizer(
@@ -445,45 +446,21 @@ def test_quantizer_torch_compile_warmup_uses_tokenizer_channels(monkeypatch):
     assert processor.warmup_shapes == [(2, 48000)]
 
 
-def test_quantizer_torch_compile_failure_restores_forward(monkeypatch):
+def test_quantizer_torch_compile_failure_restores_module(monkeypatch):
     from sglang_omni.models.moss_tts_local import stages
 
-    class _FakeQuantizer(torch.nn.Module):
-        @torch.no_grad()
-        def forward(self, z, input_length, n_quantizers=None):
-            del input_length, n_quantizers
-            return z
-
-    class _FakeAudioTokenizer(torch.nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.quantizer = _FakeQuantizer()
-
-    class _FakeProcessor:
-        def __init__(self):
-            self.audio_tokenizer = _FakeAudioTokenizer()
-
-        def encode_audios_from_wav(self, wavs, sample_rate):
-            del sample_rate
-            input_length = torch.tensor([wavs[0].shape[-1]])
-            return [self.audio_tokenizer.quantizer(wavs[0], input_length)]
-
-    def fake_compile(*args, **kwargs):
-        del args, kwargs
-
-        def wrapped(*args, **kwargs):
-            del args, kwargs
-            raise RuntimeError("warmup failed")
-
-        return wrapped
+    def fake_compile(target, **kwargs):
+        del target, kwargs
+        return _WarmupFailingQuantizer()
 
     monkeypatch.setattr(torch, "compile", fake_compile)
-    processor = _FakeProcessor()
+    processor = _FakeQuantizerProcessor()
+    eager_quantizer = processor.audio_tokenizer.quantizer
 
-    with pytest.raises(RuntimeError, match="quantizer torch.compile failed"):
+    with pytest.raises(RuntimeError, match="warmup failed"):
         stages._compile_moss_tts_local_quantizer(processor)
 
-    assert "forward" not in processor.audio_tokenizer.quantizer.__dict__
+    assert processor.audio_tokenizer.quantizer is eager_quantizer
     value = torch.tensor([[1.0]])
     assert torch.equal(processor.encode_audios_from_wav([value], 48000)[0], value)
 
@@ -515,13 +492,13 @@ def test_create_preprocessing_executor_quantizer_compile_wiring(monkeypatch):
     assert captured == [(processor, "reduce-overhead", [1.0, 2.0])]
 
     captured.clear()
-    monkeypatch.setenv("MOSS_LOCAL_QUANTIZER_TORCH_COMPILE", "0")
     stages.create_preprocessing_executor(
         "model",
         device="cpu",
         enable_quantizer_torch_compile=True,
+        encode_batch_size=8,
     )
-    assert captured == []
+    assert captured == [(processor, "default", None)]
 
 
 def test_preprocess_and_result_adapter():
