@@ -175,6 +175,7 @@ def test_pipeline_stage_wiring():
     assert stages["preprocessing"].process == "pipeline"
     assert stages["preprocessing"].gpu == 0
     assert stages["preprocessing"].factory_args["device"] == "cuda:1"
+    assert stages["preprocessing"].factory_args["ref_audio_cache_max_items"] == 1024
     assert stages["tts_engine"].process == "pipeline"
     assert stages["tts_engine"].gpu == 0
     assert stages["vocoder"].process == "pipeline"
@@ -191,6 +192,10 @@ def test_pipeline_stage_wiring():
     )
     colocated_stages = {stage.name: stage for stage in colocated.stages}
     assert colocated_stages["preprocessing"].factory_args["device"] == "cuda:0"
+    assert (
+        colocated_stages["preprocessing"].factory_args["ref_audio_cache_max_items"]
+        == 1024
+    )
     assert colocated_stages["vocoder"].factory_args["device"] == "cuda:0"
 
 
