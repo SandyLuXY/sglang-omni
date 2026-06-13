@@ -794,16 +794,18 @@ def test_batched_reference_encoder_malformed_batch_output_falls_back_per_item():
     assert [4] in calls
 
 
-def test_batched_reference_encoder_without_wav_api_uses_batched_path_encode():
+def test_batched_reference_encoder_without_wav_api_buckets_path_encode_by_length():
     import threading
 
     from sglang_omni.models.moss_tts_local.stages import _BatchedReferenceEncoder
 
     calls = []
     load_calls = []
-    markers = {"same.wav": 1, "other.wav": 2}
+    markers = {"same-a.wav": 1, "long.wav": 2, "same-b.wav": 3}
 
     class _FakeCodecProcessor:
+        model_config = _FakeMossAudioConfig()
+
         def encode_audios_from_path(self, paths):
             paths = list(paths)
             calls.append(paths)
@@ -814,13 +816,18 @@ def test_batched_reference_encoder_without_wav_api_uses_batched_path_encode():
     encoder = _BatchedReferenceEncoder(
         _FakeCodecProcessor(), max_batch_size=3, max_batch_wait_ms=1000
     )
+    wavs = {
+        "same-a.wav": _fake_reference_wav(8, 1),
+        "long.wav": _fake_reference_wav(13, 2),
+        "same-b.wav": _fake_reference_wav(8, 3),
+    }
 
     def load_reference(path, target_sr):
         load_calls.append((path, target_sr))
-        raise AssertionError("path fallback must not load waveforms")
+        return wavs[path]
 
     encoder._load_reference_wav = load_reference
-    paths = ["same.wav", "other.wav", "same.wav"]
+    paths = ["same-a.wav", "long.wav", "same-b.wav"]
     results = [None] * len(paths)
     barrier = threading.Barrier(len(paths))
 
@@ -834,14 +841,18 @@ def test_batched_reference_encoder_without_wav_api_uses_batched_path_encode():
     for thread in threads:
         thread.join(timeout=10)
 
-    assert load_calls == []
-    assert len(calls) == 1
-    assert set(calls[0]) == {"same.wav", "other.wav"}
-    assert len(calls[0]) == 2
-    assert [int(result[0, 0]) for result in results] == [1, 2, 1]
+    assert all(
+        target_sr == _FakeMossAudioConfig.sampling_rate for _, target_sr in load_calls
+    )
+    assert any(set(call) == {"same-a.wav", "same-b.wav"} for call in calls)
+    assert any(call == ["long.wav"] for call in calls)
+    assert not any(
+        len({int(wavs[path].shape[-1]) for path in call}) > 1 for call in calls
+    )
+    assert [int(result[0, 0]) for result in results] == [1, 2, 3]
 
 
-def test_batched_reference_encoder_load_failure_falls_back_to_batched_path_encode():
+def test_batched_reference_encoder_load_failure_falls_back_to_per_item_path_encode():
     import threading
 
     from sglang_omni.models.moss_tts_local.stages import _BatchedReferenceEncoder
@@ -887,8 +898,9 @@ def test_batched_reference_encoder_load_failure_falls_back_to_batched_path_encod
         thread.join(timeout=10)
 
     assert wav_calls == []
-    assert len(path_calls) == 1
-    assert set(path_calls[0]) == {"first.wav", "second.wav"}
+    assert len(path_calls) == 2
+    assert all(len(call) == 1 for call in path_calls)
+    assert {call[0] for call in path_calls} == {"first.wav", "second.wav"}
     assert [int(result[0, 0]) for result in results] == [11, 22]
 
 

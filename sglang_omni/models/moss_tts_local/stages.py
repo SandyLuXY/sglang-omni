@@ -240,13 +240,16 @@ class _BatchedReferenceEncoder:
                 "MOSS-TTS Local batched path reference encode failed; "
                 "retrying per item"
             )
-            results = {}
-            for path in paths:
-                try:
-                    results[path] = self._encode_one_path(path)
-                except Exception as exc:
-                    results[path] = exc
-            return results
+            return self._encode_paths_individually(paths)
+
+    def _encode_paths_individually(self, paths: list[str]) -> dict[str, Any]:
+        results = {}
+        for path in paths:
+            try:
+                results[path] = self._encode_one_path(path)
+            except Exception as exc:
+                results[path] = exc
+        return results
 
     def _encode_wavs(
         self, paths: list[str], wavs: list[torch.Tensor], target_sr: int
@@ -303,7 +306,8 @@ class _BatchedReferenceEncoder:
                 load_failed_paths.append(path)
 
         if load_failed_paths and self._path_encoder() is not None:
-            results.update(self._encode_paths_with_fallback(load_failed_paths))
+            # Length is unknown for these paths, so never batch them.
+            results.update(self._encode_paths_individually(load_failed_paths))
 
         if not loaded:
             return results
@@ -335,10 +339,41 @@ class _BatchedReferenceEncoder:
                             results[path] = path_exc
         return results
 
+    def _encode_paths_bucketed_by_length(self, paths: list[str]) -> dict[str, Any]:
+        """Path-API fallback for processors without encode_audios_from_wav.
+
+        The path API may internally pad before codec encoding, so only call it
+        with paths whose loaded/resampled waveform lengths match exactly. If
+        length discovery fails, encode that path alone.
+        """
+        try:
+            target_sr = self._target_sample_rate()
+        except Exception:
+            return self._encode_paths_individually(paths)
+
+        results: dict[str, Any] = {}
+        buckets: dict[int, list[str]] = {}
+        for path in paths:
+            try:
+                wav = self._load_reference_wav(path, target_sr)
+            except Exception:
+                if self._path_encoder() is None:
+                    results[path] = RuntimeError(
+                        "MOSS-TTS Local processor cannot encode paths"
+                    )
+                else:
+                    results.update(self._encode_paths_individually([path]))
+                continue
+            buckets.setdefault(int(wav.shape[-1]), []).append(path)
+
+        for bucket_paths in buckets.values():
+            results.update(self._encode_paths_with_fallback(bucket_paths))
+        return results
+
     def _encode_path_batch(self, paths: list[str]) -> dict[str, Any]:
         if self._wav_encoder() is not None:
             return self._encode_wavs_from_paths_with_fallback(paths)
-        return self._encode_paths_with_fallback(paths)
+        return self._encode_paths_bucketed_by_length(paths)
 
     def _worker(self) -> None:
         while True:
