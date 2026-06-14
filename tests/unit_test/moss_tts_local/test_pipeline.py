@@ -325,6 +325,7 @@ def test_create_preprocessing_executor_env_toggle(monkeypatch):
     assert isinstance(
         rb._PREPROCESSING_CONTEXT.reference_encoder, stages.CachedReferenceEncoder
     )
+    assert rb._PREPROCESSING_CONTEXT.reference_encoder._cache.max_size == 1024
 
 
 def test_preprocess_and_result_adapter():
