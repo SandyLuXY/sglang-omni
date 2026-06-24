@@ -394,4 +394,3 @@ def test_ref_encoder_forward_chains_all_stages() -> None:
     assert transformer_stage.seen_input_shape is None
     assert out.shape == (2, 7, 4)
     assert torch.equal(out_lengths, lengths)
-
