@@ -48,6 +48,7 @@ from sglang_omni.scheduling.sglang_backend.server_args_builder import (
     apply_encoder_mem_reserve,
     build_sglang_server_args,
 )
+from sglang_omni.scheduling.stage_cache import StageOutputCache
 from sglang_omni.utils.imports import import_string
 from tests.unit_test.fixtures.qwen_fakes import (
     FakeQwenTokenizer,
@@ -1120,6 +1121,69 @@ def test_qwen_mm_aggregate_keeps_lightweight_inputs_and_prunes_after_merge() -> 
         "video": "video:image-cache",
         "audio": "audio:audio-cache",
     }
+
+
+def test_qwen_audio_encoder_batch_deduplicates_same_cache_key() -> None:
+    class FakeAudioEncoder:
+        def __init__(self) -> None:
+            self.calls = 0
+            self.processed_rows = 0
+
+        def __call__(self, **kwargs):
+            self.calls += 1
+            features = kwargs["input_features"]
+            lengths = kwargs["audio_feature_lengths"].to(dtype=torch.long).view(-1)
+            self.processed_rows += int(features.shape[0])
+            output_lengths = torch.ones_like(lengths)
+            total = int(output_lengths.sum().item())
+            return {
+                "audio_feature_lengths": lengths,
+                "audio_output_lengths": output_lengths,
+                "audio_embeds": torch.arange(
+                    total * 2, dtype=torch.float32
+                ).reshape(total, 2),
+            }
+
+    def _payload(request_id: str, cache_key: str) -> StagePayload:
+        state = make_qwen_state(
+            encoder_inputs={
+                "audio_encoder": {
+                    "cache_key": cache_key,
+                    "input_features": torch.ones((1, 2, 4)),
+                    "feature_attention_mask": torch.ones((1, 4), dtype=torch.long),
+                    "audio_feature_lengths": torch.tensor([4]),
+                }
+            }
+        )
+        return make_qwen_payload(state, request_id=request_id)
+
+    cache = StageOutputCache(max_size=8, max_bytes=1024 * 1024)
+    model = FakeAudioEncoder()
+    payloads = [
+        _payload("aud-a-1", "audio-a"),
+        _payload("aud-a-2", "audio-a"),
+        _payload("aud-b-1", "audio-b"),
+    ]
+
+    result_payloads = qwen_stages._batch_audio_encoder_payloads(
+        payloads,
+        model=model,
+        cache=cache,
+    )
+
+    assert model.calls == 1
+    assert model.processed_rows == 2
+    for payload in result_payloads:
+        state = Qwen3OmniPipelineState.from_dict(payload.data)
+        assert "audio_embeds" in state.encoder_outs["audio_encoder"]
+
+    qwen_stages._batch_audio_encoder_payloads(
+        [_payload("aud-a-3", "audio-a"), _payload("aud-b-2", "audio-b")],
+        model=model,
+        cache=cache,
+    )
+    assert model.calls == 1
+    assert model.processed_rows == 2
 
 
 def test_qwen_thinker_request_and_decode_contracts() -> None:

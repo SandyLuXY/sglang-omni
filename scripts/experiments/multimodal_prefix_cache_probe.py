@@ -25,6 +25,11 @@ if str(REPO_ROOT) not in sys.path:
 
 from sglang_omni.models.ming_omni.bootstrap import make_thinker_scheduler_adapters
 from sglang_omni.models.ming_omni.io import MingOmniPipelineState
+from sglang_omni.models.ming_omni.pipeline.next_stage import (
+    AUDIO_STAGE as MING_AUDIO_STAGE,
+    IMAGE_STAGE as MING_IMAGE_STAGE,
+)
+from sglang_omni.models.ming_omni import stages as ming_stages
 from sglang_omni.models.qwen3_omni import request_builders as qwen_rb
 from sglang_omni.models.qwen3_omni.payload_types import Qwen3OmniPipelineState
 from sglang_omni.models.qwen3_omni.stages import (
@@ -157,6 +162,26 @@ class _FakeAudioEncoder:
                 (int(output_lengths.sum().item()), 4), dtype=torch.float32
             ),
         }
+
+
+class _FakeMingEncoder:
+    def __init__(self, output_key: str, delay_s: float = 0.003) -> None:
+        self.output_key = output_key
+        self.calls = 0
+        self.delay_s = delay_s
+
+    def __call__(self, **inputs: Any) -> dict[str, Any]:
+        self.calls += 1
+        if self.delay_s:
+            time.sleep(self.delay_s)
+        if self.output_key == "audio_embeds":
+            lengths = inputs.get("audio_feature_lengths")
+            if isinstance(lengths, torch.Tensor):
+                rows = max(int(lengths.numel()), 1)
+            else:
+                rows = 1
+            return {self.output_key: torch.ones((rows, 4), dtype=torch.float32)}
+        return {self.output_key: torch.ones((4, 4), dtype=torch.float32)}
 
 
 def _run(cmd: list[str]) -> str:
@@ -468,26 +493,83 @@ def _qwen_audio_cache_probe(repeats: int) -> EncoderCacheResult:
         ),
         notes=(
             "Synthetic encoder sleeps 3 ms per batched forward; processed_units are "
-            "audio rows. Warm cache hits skip compute, but same-batch duplicate keys "
-            "are still processed in the active audio batching path."
+            "audio rows. Warm cache hits skip compute, and the active audio batching "
+            "path now coalesces same-batch duplicate cache keys."
         ),
     )
 
 
-def _ming_encoder_gap() -> dict[str, Any]:
+def _ming_payload(stage_name: str, request_id: str, cache_key: str) -> StagePayload:
+    if stage_name == MING_AUDIO_STAGE:
+        encoder_inputs = {
+            stage_name: {
+                "cache_key": cache_key,
+                "audio_placeholder_loc_lens": [(0, 1)],
+                "input_features": torch.ones((1, 2, 4), dtype=torch.float32),
+                "audio_feature_lengths": torch.tensor([4], dtype=torch.long),
+            }
+        }
+    else:
+        encoder_inputs = {
+            stage_name: {
+                "cache_key": cache_key,
+                "pixel_values": torch.ones((4, 8), dtype=torch.float32),
+                "image_grid_thw": torch.tensor([[1, 2, 2]], dtype=torch.long),
+            }
+        }
+    return StagePayload(
+        request_id=request_id,
+        request=OmniRequest(inputs={}),
+        data=MingOmniPipelineState(encoder_inputs=encoder_inputs).to_dict(),
+    )
+
+
+def _ming_encoder_cache_probe() -> dict[str, Any]:
     repeat_requests = 10
+    stage_specs = [
+        (
+            MING_AUDIO_STAGE,
+            _FakeMingEncoder("audio_embeds"),
+            {"cache_key", "audio_placeholder_loc_lens"},
+        ),
+        (MING_IMAGE_STAGE, _FakeMingEncoder("image_embeds"), {"cache_key"}),
+    ]
+    stages: list[dict[str, Any]] = []
+    for stage_name, model, metadata_keys in stage_specs:
+        cache = ming_stages._create_encoder_cache()
+        elapsed_ms: list[float] = []
+        for idx in range(repeat_requests):
+            t0 = time.perf_counter()
+            ming_stages._run_cached_encoder_payload(
+                _ming_payload(stage_name, f"ming-{stage_name}-{idx}", "same-media"),
+                stage_name=stage_name,
+                model=model,
+                cache=cache,
+                metadata_keys=metadata_keys,
+            )
+            elapsed_ms.append((time.perf_counter() - t0) * 1000)
+        stages.append(
+            {
+                "stage": stage_name,
+                "repeated_media_requests": repeat_requests,
+                "model_calls": model.calls,
+                "expected_without_cache_model_calls": repeat_requests,
+                "avoidable_encoder_forwards_ratio": round(
+                    (repeat_requests - model.calls) / repeat_requests, 4
+                ),
+                "first_request_ms": round(elapsed_ms[0], 4),
+                "warm_request_ms_median": round(_median(elapsed_ms[1:]), 4),
+            }
+        )
     return {
         "model": "ming_omni",
-        "active_encoder_cache": "not wired in sglang_omni/models/ming_omni/stages.py",
+        "active_encoder_cache": "wired in sglang_omni/models/ming_omni/stages.py",
         "media_key_to_radix_cache": "wired in sglang_omni/models/ming_omni/bootstrap.py",
-        "repeated_media_requests": repeat_requests,
-        "current_expected_encoder_forwards": repeat_requests,
-        "with_stage_output_cache_expected_forwards": 1,
-        "avoidable_encoder_forwards_ratio": round((repeat_requests - 1) / repeat_requests, 4),
+        "stages": stages,
         "notes": (
             "Ming active stages pass cache_key through preprocessing/merge for radix "
-            "safety, but the active SimpleScheduler encoder factories do not use "
-            "StageOutputCache. This is a static code-path estimate, not a model run."
+            "safety and now use StageOutputCache in active audio/image encoder "
+            "factories. This is a synthetic stage-helper probe, not a full-model run."
         ),
     }
 
@@ -662,9 +744,9 @@ def _write_markdown(output_dir: Path, results: dict[str, Any]) -> None:
     lines.extend(
         [
             "",
-            "## Ming Encoder Gap",
+            "## Ming Encoder Cache Probe",
             "",
-            json.dumps(results["ming_encoder_gap"], indent=2, sort_keys=True),
+            json.dumps(results["ming_encoder_cache"], indent=2, sort_keys=True),
             "",
             "## SLO Scheduling Simulation",
             "",
@@ -720,7 +802,7 @@ def run_probe(output_dir: Path, repeats: int) -> dict[str, Any]:
             asdict(_qwen_image_cache_probe(repeats)),
             asdict(_qwen_audio_cache_probe(repeats)),
         ],
-        "ming_encoder_gap": _ming_encoder_gap(),
+        "ming_encoder_cache": _ming_encoder_cache_probe(),
         "scheduling_simulation": [
             asdict(_simulate_scheduler("fifo")),
             asdict(_simulate_scheduler("edf")),

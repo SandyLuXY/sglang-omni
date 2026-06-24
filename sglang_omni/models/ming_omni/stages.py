@@ -7,12 +7,20 @@ Ming's config remains usable in lightweight environments.
 
 from __future__ import annotations
 
+import logging
+import os
 from typing import Any
 
 from sglang_omni.models.ming_omni.io import MingOmniPipelineState
 from sglang_omni.models.ming_omni.pipeline.next_stage import AUDIO_STAGE, IMAGE_STAGE
 from sglang_omni.models.ming_omni.tp_utils import validate_stage_tp_support
 from sglang_omni.proto import StagePayload
+
+
+logger = logging.getLogger(__name__)
+
+MING_ENCODER_CACHE_MAX_BYTES = 4 * 1024**3
+MING_ENCODER_CACHE_MAX_ENTRIES = 64
 
 
 def project_preprocessing_to_audio_encoder(payload: StagePayload) -> StagePayload:
@@ -94,6 +102,163 @@ def _single_encoder_stage_name(state: MingOmniPipelineState) -> str:
     return next(iter(state.encoder_outs))
 
 
+def _nested_tensor_bytes(value: Any) -> int:
+    import torch
+
+    if isinstance(value, torch.Tensor):
+        return int(value.numel() * value.element_size())
+    if isinstance(value, dict):
+        return sum(_nested_tensor_bytes(item) for item in value.values())
+    if isinstance(value, (list, tuple)):
+        return sum(_nested_tensor_bytes(item) for item in value)
+    return 0
+
+
+def _encoder_cache_trace_enabled() -> bool:
+    value = os.getenv("SGLANG_OMNI_TRACE_ENCODER_CACHE", "")
+    return value.lower() not in ("", "0", "false", "no")
+
+
+def _short_cache_key(cache_key: str | None) -> str:
+    if not cache_key:
+        return "-"
+    if len(cache_key) <= 32:
+        return cache_key
+    return f"{cache_key[:16]}...{cache_key[-8:]}"
+
+
+def _trace_encoder_cache(
+    stage_name: str,
+    action: str,
+    *,
+    request_id: str,
+    cache_key: str | None,
+    input_bytes: int | None = None,
+    output_bytes: int | None = None,
+) -> None:
+    if not _encoder_cache_trace_enabled():
+        return
+    parts = [
+        f"stage={stage_name}",
+        f"action={action}",
+        f"req={request_id}",
+        f"key={_short_cache_key(cache_key)}",
+    ]
+    if input_bytes is not None:
+        parts.append(f"input_bytes={input_bytes}")
+    if output_bytes is not None:
+        parts.append(f"output_bytes={output_bytes}")
+    logger.info("encoder_cache %s", " ".join(parts))
+
+
+def _lookup_cached_encoder_output(
+    *,
+    cache: Any | None,
+    cache_key: str | None,
+    stage_name: str,
+    request_id: str,
+    model_inputs: dict[str, Any],
+) -> Any | None:
+    if cache is None or cache_key is None:
+        return None
+    cached = cache.get(cache_key)
+    if cached is None:
+        _trace_encoder_cache(
+            stage_name,
+            "miss",
+            request_id=request_id,
+            cache_key=cache_key,
+            input_bytes=_nested_tensor_bytes(model_inputs),
+        )
+        return None
+    _trace_encoder_cache(
+        stage_name,
+        "hit",
+        request_id=request_id,
+        cache_key=cache_key,
+        input_bytes=_nested_tensor_bytes(model_inputs),
+        output_bytes=_nested_tensor_bytes(cached),
+    )
+    return cached
+
+
+def _store_cached_encoder_output(
+    *,
+    cache: Any | None,
+    cache_key: str | None,
+    stage_name: str,
+    request_id: str,
+    model_inputs: dict[str, Any],
+    result: dict[str, Any],
+) -> None:
+    if cache is None or cache_key is None:
+        return
+    cache.put(cache_key, result)
+    _trace_encoder_cache(
+        stage_name,
+        "store",
+        request_id=request_id,
+        cache_key=cache_key,
+        input_bytes=_nested_tensor_bytes(model_inputs),
+        output_bytes=_nested_tensor_bytes(result),
+    )
+
+
+def _run_cached_encoder_payload(
+    payload: StagePayload,
+    *,
+    stage_name: str,
+    model: Any,
+    cache: Any,
+    metadata_keys: set[str],
+) -> StagePayload:
+    state = MingOmniPipelineState.from_dict(payload.data)
+    inputs = state.encoder_inputs.get(stage_name)
+    if not isinstance(inputs, dict) or not inputs:
+        result: dict[str, Any] = {}
+    elif inputs.get("_skip"):
+        skip_result = inputs.get("_result")
+        result = skip_result if isinstance(skip_result, dict) else {}
+    else:
+        cache_key = inputs.get("cache_key")
+        cache_key = str(cache_key) if cache_key is not None else None
+        model_inputs = {k: v for k, v in inputs.items() if k not in metadata_keys}
+        cached = _lookup_cached_encoder_output(
+            cache=cache,
+            cache_key=cache_key,
+            stage_name=stage_name,
+            request_id=payload.request_id,
+            model_inputs=model_inputs,
+        )
+        if cached is not None:
+            result = cached if isinstance(cached, dict) else {}
+        else:
+            computed = model(**model_inputs)
+            result = computed if isinstance(computed, dict) else {}
+            _store_cached_encoder_output(
+                cache=cache,
+                cache_key=cache_key,
+                stage_name=stage_name,
+                request_id=payload.request_id,
+                model_inputs=model_inputs,
+                result=result,
+            )
+    state.encoder_outs[stage_name] = result
+    state.engine_outputs[stage_name] = result
+    payload.data = state.to_dict()
+    return payload
+
+
+def _create_encoder_cache() -> Any:
+    from sglang_omni.scheduling.stage_cache import StageOutputCache
+
+    return StageOutputCache(
+        max_size=MING_ENCODER_CACHE_MAX_ENTRIES,
+        max_bytes=MING_ENCODER_CACHE_MAX_BYTES,
+        cache_device="cpu",
+    )
+
+
 def create_preprocessing_executor(model_path: str):
     from sglang_omni.models.ming_omni.components.preprocessor import MingPreprocessor
     from sglang_omni.scheduling.simple_scheduler import SimpleScheduler
@@ -152,23 +317,16 @@ def create_audio_encoder_executor(
     from sglang_omni.scheduling.simple_scheduler import SimpleScheduler
 
     model = MingAudioEncoder(model_path=model_path, device=device, dtype=dtype)
+    cache = _create_encoder_cache()
 
     def _encode(payload: StagePayload) -> StagePayload:
-        state = MingOmniPipelineState.from_dict(payload.data)
-        inputs = state.encoder_inputs.get(AUDIO_STAGE)
-        if not isinstance(inputs, dict) or not inputs:
-            result = {}
-        elif inputs.get("_skip"):
-            skip_result = inputs.get("_result")
-            result = skip_result if isinstance(skip_result, dict) else {}
-        else:
-            _meta = {"cache_key", "audio_placeholder_loc_lens"}
-            model_inputs = {k: v for k, v in inputs.items() if k not in _meta}
-            result = model(**model_inputs)
-        state.encoder_outs[AUDIO_STAGE] = result if isinstance(result, dict) else {}
-        state.engine_outputs[AUDIO_STAGE] = state.encoder_outs[AUDIO_STAGE]
-        payload.data = state.to_dict()
-        return payload
+        return _run_cached_encoder_payload(
+            payload,
+            stage_name=AUDIO_STAGE,
+            model=model,
+            cache=cache,
+            metadata_keys={"cache_key", "audio_placeholder_loc_lens"},
+        )
 
     return SimpleScheduler(_encode)
 
@@ -193,22 +351,16 @@ def create_image_encoder_executor(
         tp_size=tp_size,
         nccl_port=nccl_port,
     )
+    cache = _create_encoder_cache()
 
     def _encode(payload: StagePayload) -> StagePayload:
-        state = MingOmniPipelineState.from_dict(payload.data)
-        inputs = state.encoder_inputs.get(IMAGE_STAGE)
-        if not isinstance(inputs, dict) or not inputs:
-            result = {}
-        elif inputs.get("_skip"):
-            skip_result = inputs.get("_result")
-            result = skip_result if isinstance(skip_result, dict) else {}
-        else:
-            model_inputs = {k: v for k, v in inputs.items() if k != "cache_key"}
-            result = model(**model_inputs)
-        state.encoder_outs[IMAGE_STAGE] = result if isinstance(result, dict) else {}
-        state.engine_outputs[IMAGE_STAGE] = state.encoder_outs[IMAGE_STAGE]
-        payload.data = state.to_dict()
-        return payload
+        return _run_cached_encoder_payload(
+            payload,
+            stage_name=IMAGE_STAGE,
+            model=model,
+            cache=cache,
+            metadata_keys={"cache_key"},
+        )
 
     return SimpleScheduler(_encode)
 

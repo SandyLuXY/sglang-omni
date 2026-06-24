@@ -804,6 +804,89 @@ def test_ming_merge_extracts_video_embeds_into_thinker_inputs() -> None:
     assert result["media_cache_keys"]["video"] == "video:img:abc|vid:def"
 
 
+def test_ming_encoder_stage_output_cache_reuses_audio_and_image_keys() -> None:
+    import torch
+
+    import sglang_omni.models.ming_omni.stages as ming_stages
+    from sglang_omni.models.ming_omni.io import MingOmniPipelineState
+    from sglang_omni.models.ming_omni.pipeline.next_stage import (
+        AUDIO_STAGE,
+        IMAGE_STAGE,
+    )
+    from sglang_omni.proto import OmniRequest, StagePayload
+
+    class FakeEncoder:
+        def __init__(self, output_key: str) -> None:
+            self.output_key = output_key
+            self.calls = 0
+            self.seen_keys: list[set[str]] = []
+
+        def __call__(self, **kwargs):
+            self.calls += 1
+            self.seen_keys.append(set(kwargs))
+            return {self.output_key: torch.full((1, 2), float(self.calls))}
+
+    def _payload(stage_name: str, request_id: str, cache_key: str) -> StagePayload:
+        if stage_name == AUDIO_STAGE:
+            inputs = {
+                "cache_key": cache_key,
+                "audio_placeholder_loc_lens": [(0, 1)],
+                "input_features": torch.ones((1, 2, 4)),
+                "audio_feature_lengths": torch.tensor([4]),
+            }
+        else:
+            inputs = {
+                "cache_key": cache_key,
+                "pixel_values": torch.ones((4, 8)),
+                "image_grid_thw": torch.tensor([[1, 2, 2]]),
+            }
+        state = MingOmniPipelineState(encoder_inputs={stage_name: inputs})
+        return StagePayload(
+            request_id=request_id,
+            request=OmniRequest(inputs={}),
+            data=state.to_dict(),
+        )
+
+    cases = [
+        (
+            AUDIO_STAGE,
+            FakeEncoder("audio_embeds"),
+            {"cache_key", "audio_placeholder_loc_lens"},
+        ),
+        (IMAGE_STAGE, FakeEncoder("image_embeds"), {"cache_key"}),
+    ]
+
+    for stage_name, model, metadata_keys in cases:
+        cache = ming_stages._create_encoder_cache()
+        first = ming_stages._run_cached_encoder_payload(
+            _payload(stage_name, f"{stage_name}-1", "same-media"),
+            stage_name=stage_name,
+            model=model,
+            cache=cache,
+            metadata_keys=metadata_keys,
+        )
+        second = ming_stages._run_cached_encoder_payload(
+            _payload(stage_name, f"{stage_name}-2", "same-media"),
+            stage_name=stage_name,
+            model=model,
+            cache=cache,
+            metadata_keys=metadata_keys,
+        )
+
+        assert model.calls == 1
+        assert not (model.seen_keys[0] & metadata_keys)
+        first_state = MingOmniPipelineState.from_dict(first.data)
+        second_state = MingOmniPipelineState.from_dict(second.data)
+        assert first_state.encoder_outs[stage_name].keys() == (
+            second_state.encoder_outs[stage_name].keys()
+        )
+        key = next(iter(first_state.encoder_outs[stage_name]))
+        assert torch.equal(
+            first_state.encoder_outs[stage_name][key],
+            second_state.encoder_outs[stage_name][key],
+        )
+
+
 def test_compute_video_cache_key_changes_with_decode_params() -> None:
     """Different fps/max_frames/pixel limits must produce distinct cache keys.
 
