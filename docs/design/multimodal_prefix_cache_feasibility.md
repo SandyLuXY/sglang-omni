@@ -25,6 +25,11 @@ Raw probe artifacts:
 - `logs/benchmark_multimodal_prefix_cache_20260624_224653/server/ming_server.log`
 - `logs/benchmark_multimodal_prefix_cache_20260624_224653/sync/sync-main.txt`
 - `logs/benchmark_multimodal_prefix_cache_20260624_224653/sync/sync-feature.txt`
+- `logs/benchmark_multimodal_prefix_cache_av_20260624_230319/benchmark_summary.md`
+- `logs/benchmark_multimodal_prefix_cache_av_20260624_230319/client/qwen_audio_repeated_media.json`
+- `logs/benchmark_multimodal_prefix_cache_av_20260624_230319/client/qwen_video_repeated_media.json`
+- `logs/benchmark_multimodal_prefix_cache_av_20260624_230319/client/ming_audio_repeated_media.json`
+- `logs/benchmark_multimodal_prefix_cache_av_20260624_230319/client/ming_video_repeated_media_after_patch.json`
 
 Run command:
 
@@ -54,6 +59,34 @@ python scripts/experiments/multimodal_server_repeated_media_probe.py \
   --max-tokens 16 \
   --output logs/benchmark_multimodal_prefix_cache_20260624_224653/client/ming_repeated_media.json \
   --markdown-output logs/benchmark_multimodal_prefix_cache_20260624_224653/client/ming_repeated_media.md
+python scripts/experiments/multimodal_server_repeated_media_probe.py \
+  --base-url http://127.0.0.1:8100 \
+  --model qwen3-omni \
+  --media-kind audio \
+  --media tests/data/query_to_draw.wav \
+  --alt-media tests/data/query_to_cars.wav \
+  --prompt "What is said in the audio? Answer briefly." \
+  --cold-concurrency 4 \
+  --repeats 4 \
+  --stream \
+  --max-tokens 16 \
+  --output logs/benchmark_multimodal_prefix_cache_av_20260624_230319/client/qwen_audio_repeated_media.json \
+  --markdown-output logs/benchmark_multimodal_prefix_cache_av_20260624_230319/client/qwen_audio_repeated_media.md
+python scripts/experiments/multimodal_server_repeated_media_probe.py \
+  --base-url http://127.0.0.1:8101 \
+  --model ming-omni \
+  --media-kind video \
+  --media tests/data/draw.mp4 \
+  --prompt "Describe this video in one short sentence." \
+  --cold-concurrency 4 \
+  --repeats 4 \
+  --stream \
+  --max-tokens 16 \
+  --video-fps 1 \
+  --video-max-frames 8 \
+  --video-max-pixels 200704 \
+  --output logs/benchmark_multimodal_prefix_cache_av_20260624_230319/client/ming_video_repeated_media_after_patch.json \
+  --markdown-output logs/benchmark_multimodal_prefix_cache_av_20260624_230319/client/ming_video_repeated_media_after_patch.md
 ```
 
 Environment captured by the probe:
@@ -66,6 +99,9 @@ Environment captured by the probe:
   mode, image input, `SGLANG_OMNI_TRACE_ENCODER_CACHE=1`
 - Ming serving run: GPUs 2-5, `inclusionAI/Ming-flash-omni-2.0`, thinker
   TP=4, text-output mode, image input
+- follow-up audio/video serving probe commit before code fix: `a2cb475c`
+- follow-up audio/video serving probe included a Ming video compatibility fix
+  validated before rerunning Ming video
 
 ## Current Code Path
 
@@ -288,6 +324,54 @@ Interpretation:
   confirming that media-keyed placeholder substitution prevents unsafe reuse of
   the multimodal media span.
 
+### Audio/Video Serving Probe
+
+A follow-up serving probe extended the repeated-media measurement to audio and
+video input. The run used the same client driver and server APIs, with 4
+concurrent cold same-media requests and 4 warm sequential same-media requests.
+Audio also included a single different-media request. Video used
+`tests/data/draw.mp4` with `video_fps=1`, `video_max_frames=8`, and
+`video_max_pixels=200704`.
+
+Client timing:
+
+| Model | Media | Phase | Requests | Success | Mean latency s | p50 latency s | Mean first delta s |
+| --- | --- | --- | ---: | ---: | ---: | ---: | ---: |
+| Qwen3-Omni | audio | cold concurrent same media | 4 | 4 | 1.372 | 1.372 | 1.267 |
+| Qwen3-Omni | audio | warm sequential same media | 4 | 4 | 0.229 | 0.162 | 0.177 |
+| Qwen3-Omni | audio | single different media | 1 | 1 | 0.637 | 0.637 | 0.592 |
+| Qwen3-Omni | video | cold concurrent same media | 4 | 4 | 5.810 | 5.664 | 5.758 |
+| Qwen3-Omni | video | warm sequential same media | 4 | 4 | 2.220 | 2.217 | 2.169 |
+| Ming-Omni | audio | cold concurrent same media | 4 | 4 | 2.225 | 2.225 | 1.797 |
+| Ming-Omni | audio | warm sequential same media | 4 | 4 | 0.231 | 0.226 | 0.200 |
+| Ming-Omni | audio | single different media | 1 | 1 | 0.281 | 0.281 | 0.221 |
+| Ming-Omni | video pre-patch | cold/warm same media | 8 | 0 | N/A | N/A | N/A |
+| Ming-Omni | video after patch | cold concurrent same media | 4 | 4 | 7.052 | 6.816 | 6.305 |
+| Ming-Omni | video after patch | warm sequential same media | 4 | 4 | 2.154 | 2.157 | 2.041 |
+
+Server-side cache/prefix evidence:
+
+| Model | Media | Server evidence |
+| --- | --- | --- |
+| Qwen3-Omni | audio | cold same-audio requests emitted 4 `audio_encoder` misses and 4 stores; warm same-audio requests emitted 4 hits; prefix counters moved from `#new-token: 172, #cached-token: 0` / `#new-token: 2, #cached-token: 170` in the cold group to `#new-token: 1, #cached-token: 85` for each warm repeat |
+| Qwen3-Omni | video | cold same-video requests emitted 1 image/video encoder miss/store and 3 hits; warm repeats emitted 4 hits; prefix counters moved from `#new-token: 555, #cached-token: 3` on the first request to `#new-token: 1, #cached-token: 557` on repeats |
+| Ming-Omni | audio | no encoder-cache records; prefix counters moved from `#new-token: 165, #cached-token: 0` / `#new-token: 3, #cached-token: 492` in the cold group to `#new-token: 1, #cached-token: 164` for each warm repeat |
+| Ming-Omni | video | pre-patch requests failed in preprocessing because installed `Qwen2VLImageProcessor` rejects `videos=`; after patch, no such failures appeared and prefix counters moved from `#new-token: 1290, #cached-token: 0` to `#new-token: 1, #cached-token: 1289` on repeats |
+
+Interpretation:
+
+- Qwen3 audio has real-server warm encoder-cache hits, but the cold concurrent
+  group confirms the earlier synthetic gap: same-batch audio duplicates are not
+  coalesced, so four identical cold audio requests all computed and stored.
+- Qwen3 video reuses the image/video encoder cache through the image encoder
+  stage. Warm repeats still take about 2.2 s because video preprocessing and
+  decode/preprocess overhead remain substantial even after AR prefix reuse.
+- Ming audio/video show strong AR prefix/KV reuse but no active encoder-output
+  cache telemetry, reinforcing the Ming `StageOutputCache` gap.
+- Ming video needed a runtime compatibility fix: when the installed
+  `Qwen2VLImageProcessor` lacks `videos=` support, the preprocessor now falls
+  back to frame-list processing and reconstructs per-video `video_grid_thw`.
+
 ### SLO Scheduling Simulation
 
 The scheduling simulation is deterministic and synthetic. It models 5,000
@@ -317,10 +401,12 @@ The cache part is feasible and already partially implemented:
 
 - Qwen3-Omni has a working two-level pattern: non-AR encoder output cache plus
   SGLang radix prefix cache made multimodal-safe by content-keyed placeholder
-  substitution. The serving probe validates this on the real image-input path.
+  substitution. The serving probes validate this on real image, audio, and
+  video input paths, with an explicit audio same-batch dedup gap.
 - Ming-Omni has the radix-safety part on the active thinker path, but lacks the
   non-AR encoder output cache on active encoder stages. The serving probe
-  validates prefix/KV reuse, but not encoder-output reuse.
+  validates prefix/KV reuse across image, audio, and video, but not
+  encoder-output reuse.
 - The media-key approach handles the key correctness problem that would otherwise
   make generic `<imagePatch>` / `<audioPatch>` / `<videoPatch>` placeholders
   unsafe for radix prefix caching.
@@ -343,6 +429,8 @@ The scheduling part is feasible as a next framework layer, but not implemented:
 
 2. Qwen3 audio same-batch dedup.
    Mirror image-encoder duplicate coalescing in `_batch_audio_encoder_payloads`.
+   The audio serving probe confirmed 4 cold same-audio requests produced 4
+   `audio_encoder` misses and 4 stores before warm hits.
 
 3. Unified cache identity schema.
    Include model id/revision, modality, preprocessing parameters, encoder
@@ -359,8 +447,8 @@ The scheduling part is feasible as a next framework layer, but not implemented:
    video memory pressure, and account for cache-hit probability without changing
    Stage or Coordinator tensor/control-plane boundaries.
 
-6. Broader GPU validation.
-   Extend the current image-input serving probe to audio and video, add
-   structured request-profiler events, and compare profiler-backed TTFT, encoder
-   time, prefix-hit length, HBM usage, and deadline miss rate under repeated
-   media plus mixed-modality streaming traffic.
+6. Broader streaming validation.
+   Add structured request-profiler events and run mixed-modality text+audio
+   output or realtime websocket traffic, then compare profiler-backed TTFT,
+   encoder time, prefix-hit length, HBM usage, and deadline miss rate under
+   repeated media plus mixed-modality streaming traffic.

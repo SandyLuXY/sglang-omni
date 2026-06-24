@@ -1,0 +1,648 @@
+Failed to import nixl: No module named 'nixl'. NixlRelay will not work.
+2026-06-24 23:10:48,301 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-06-24 23:10:48,317 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/inclusionAI/Ming-flash-omni-2.0/6a2e1dec07066d20f62a743ac7c34284e4a3932d/config.json "HTTP/1.1 200 OK"
+2026-06-24 23:10:48,910 [INFO] sglang_omni.pipeline.control_plane: Coordinator control plane started
+2026-06-24 23:10:48,910 [INFO] sglang_omni.pipeline.coordinator: Coordinator started
+2026-06-24 23:10:49,473 [INFO] sglang_omni.pipeline.stage_workers: StageGroup preprocessing: spawned 1 process(es) (pids=[3796086])
+2026-06-24 23:10:49,995 [INFO] sglang_omni.pipeline.stage_workers: StageGroup audio_encoder: spawned 1 process(es) (pids=[3796150])
+2026-06-24 23:10:50,482 [INFO] sglang_omni.pipeline.stage_workers: StageGroup image_encoder: spawned 1 process(es) (pids=[3796221])
+Failed to import nixl: No module named 'nixl'. NixlRelay will not work.
+Failed to import nixl: No module named 'nixl'. NixlRelay will not work.
+2026-06-24 23:10:51,213 [INFO] sglang_omni.pipeline.stage_workers: StageGroup mm_aggregate: spawned 1 process(es) (pids=[3796298])
+2026-06-24 23:10:51,303 [INFO] stage_workers.preprocessing: Building scheduler for preprocessing (tp_rank=0/1) ...
+Failed to import nixl: No module named 'nixl'. NixlRelay will not work.
+2026-06-24 23:10:52,040 [INFO] sglang_omni.pipeline.stage_workers: StageGroup decode: spawned 1 process(es) (pids=[3796376])
+Failed to import nixl: No module named 'nixl'. NixlRelay will not work.
+Failed to import nixl: No module named 'nixl'. NixlRelay will not work.
+2026-06-24 23:10:53,235 [INFO] qwen_vl_utils.vision_process: set VIDEO_TOTAL_PIXELS: 90316800
+Failed to import nixl: No module named 'nixl'. NixlRelay will not work.
+2026-06-24 23:10:53,305 [INFO] stage_workers.thinker_tp0: TP stage thinker rank 0 sees CUDA_VISIBLE_DEVICES=2 (local gpu_id=0)
+2026-06-24 23:10:53,387 [INFO] httpx: HTTP Request: GET https://huggingface.co/api/models/inclusionAI/Ming-flash-omni-2.0/revision/main "HTTP/1.1 200 OK"
+2026-06-24 23:10:53,392 [INFO] sglang_omni.pipeline.stage_workers: StageGroup thinker: spawned 4 process(es) (pids=[3796387, 3796469, 3796533, 3796693])
+Fetching 98 files:   0%|          | 0/98 [00:00<?, ?it/s]Fetching 98 files: 100%|██████████| 98/98 [00:00<00:00, 5026.74it/s]
+2026-06-24 23:10:53,615 [INFO] stage_workers.audio_encoder: Set current CUDA device to 0 for stage audio_encoder
+2026-06-24 23:10:53,615 [INFO] stage_workers.audio_encoder: Building scheduler for audio_encoder (tp_rank=0/1) ...
+2026-06-24 23:10:53,693 [INFO] stage_workers.mm_aggregate: Building scheduler for mm_aggregate (tp_rank=0/1) ...
+Failed to import nixl: No module named 'nixl'. NixlRelay will not work.
+2026-06-24 23:10:53,806 [INFO] stage_workers.thinker_tp1: TP stage thinker rank 1 sees CUDA_VISIBLE_DEVICES=3 (local gpu_id=0)
+Failed to import nixl: No module named 'nixl'. NixlRelay will not work.
+2026-06-24 23:10:54,033 [INFO] stage_workers.thinker_tp2: TP stage thinker rank 2 sees CUDA_VISIBLE_DEVICES=4 (local gpu_id=0)
+2026-06-24 23:10:54,171 [INFO] stage_workers.image_encoder: Set current CUDA device to 0 for stage image_encoder
+2026-06-24 23:10:54,171 [INFO] stage_workers.image_encoder: Building scheduler for image_encoder (tp_rank=0/1) ...
+2026-06-24 23:10:54,381 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-06-24 23:10:54,396 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/inclusionAI/Ming-flash-omni-2.0/6a2e1dec07066d20f62a743ac7c34284e4a3932d/config.json "HTTP/1.1 200 OK"
+Failed to import nixl: No module named 'nixl'. NixlRelay will not work.
+2026-06-24 23:10:54,474 [INFO] stage_workers.thinker_tp3: TP stage thinker rank 3 sees CUDA_VISIBLE_DEVICES=5 (local gpu_id=0)
+2026-06-24 23:10:54,487 [INFO] stage_workers.decode: Building scheduler for decode (tp_rank=0/1) ...
+2026-06-24 23:10:54,498 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/tokenizer_config.json "HTTP/1.1 404 Not Found"
+2026-06-24 23:10:54,598 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/tokenizer_config.json "HTTP/1.1 404 Not Found"
+2026-06-24 23:10:54,700 [INFO] httpx: HTTP Request: GET https://huggingface.co/api/models/inclusionAI/Ming-flash-omni-2.0/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+2026-06-24 23:10:54,700 [INFO] sglang_omni.pipeline.control_plane: Stage mm_aggregate control plane started
+2026-06-24 23:10:54,701 [INFO] sglang_omni.pipeline.stage.runtime: Stage mm_aggregate started
+2026-06-24 23:10:54,701 [INFO] stage_workers.mm_aggregate: Process mm_aggregate ready with stages=['mm_aggregate']
+2026-06-24 23:10:54,702 [INFO] sglang_omni.pipeline.stage_workers: Process mm_aggregate ready
+2026-06-24 23:10:54,713 [INFO] stage_workers.audio_encoder: Acquired GPU startup lock for stage audio_encoder: /tmp/sglang_omni_gpu_2_startup.lock
+2026-06-24 23:10:54,806 [INFO] httpx: HTTP Request: GET https://huggingface.co/api/models/inclusionAI/Ming-flash-omni-2.0/tree/main?recursive=true&expand=false "HTTP/1.1 200 OK"
+2026-06-24 23:10:54,883 [INFO] httpx: HTTP Request: GET https://huggingface.co/api/models/inclusionAI/Ming-flash-omni-2.0/revision/main "HTTP/1.1 200 OK"
+Fetching 98 files:   0%|          | 0/98 [00:00<?, ?it/s]Fetching 98 files: 100%|██████████| 98/98 [00:00<00:00, 7219.62it/s]
+2026-06-24 23:10:54,908 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/tokenizer.json "HTTP/1.1 404 Not Found"
+2026-06-24 23:10:55,008 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/tokenizer.model "HTTP/1.1 404 Not Found"
+2026-06-24 23:10:55,113 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/added_tokens.json "HTTP/1.1 404 Not Found"
+2026-06-24 23:10:55,153 [INFO] stage_workers.thinker_tp0: Set current CUDA device to 0 for stage thinker
+2026-06-24 23:10:55,153 [INFO] stage_workers.thinker_tp0: Building scheduler for thinker (tp_rank=0/4) ...
+2026-06-24 23:10:55,215 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/special_tokens_map.json "HTTP/1.1 404 Not Found"
+2026-06-24 23:10:55,316 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/tokenizer_config.json "HTTP/1.1 404 Not Found"
+2026-06-24 23:10:55,421 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/chat_template.jinja "HTTP/1.1 404 Not Found"
+2026-06-24 23:10:55,520 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/tokenizer_config.json "HTTP/1.1 404 Not Found"
+2026-06-24 23:10:55,606 [INFO] stage_workers.thinker_tp1: Set current CUDA device to 0 for stage thinker
+2026-06-24 23:10:55,606 [INFO] stage_workers.thinker_tp1: Building scheduler for thinker (tp_rank=1/4) ...
+2026-06-24 23:10:55,620 [INFO] httpx: HTTP Request: GET https://huggingface.co/api/models/inclusionAI/Ming-flash-omni-2.0/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+2026-06-24 23:10:55,726 [INFO] httpx: HTTP Request: GET https://huggingface.co/api/models/inclusionAI/Ming-flash-omni-2.0/tree/main?recursive=true&expand=false "HTTP/1.1 200 OK"
+2026-06-24 23:10:55,744 [INFO] stage_workers.thinker_tp2: Set current CUDA device to 0 for stage thinker
+2026-06-24 23:10:55,744 [INFO] stage_workers.thinker_tp2: Building scheduler for thinker (tp_rank=2/4) ...
+2026-06-24 23:10:55,832 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/tokenizer.json "HTTP/1.1 404 Not Found"
+2026-06-24 23:10:55,859 [INFO] stage_workers.thinker_tp3: Set current CUDA device to 0 for stage thinker
+2026-06-24 23:10:55,860 [INFO] stage_workers.thinker_tp3: Building scheduler for thinker (tp_rank=3/4) ...
+2026-06-24 23:10:55,934 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/tokenizer.model "HTTP/1.1 404 Not Found"
+2026-06-24 23:10:56,034 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/added_tokens.json "HTTP/1.1 404 Not Found"
+2026-06-24 23:10:56,139 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/special_tokens_map.json "HTTP/1.1 404 Not Found"
+2026-06-24 23:10:56,239 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/tokenizer_config.json "HTTP/1.1 404 Not Found"
+2026-06-24 23:10:56,339 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/chat_template.jinja "HTTP/1.1 404 Not Found"
+2026-06-24 23:10:56,339 [WARNING] sglang_omni.models.ming_omni.components.common: Tokenizer not found in inclusionAI/Ming-flash-omni-2.0, falling back to inclusionAI/Ming-flash-omni-Preview
+2026-06-24 23:10:56,442 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-Preview/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-06-24 23:10:56,459 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/inclusionAI/Ming-flash-omni-Preview/8791771443ae7525ee27140dcf6c8f2830f45888/config.json "HTTP/1.1 200 OK"
+2026-06-24 23:10:56,557 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-Preview/resolve/main/tokenizer_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-06-24 23:10:56,574 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/inclusionAI/Ming-flash-omni-Preview/8791771443ae7525ee27140dcf6c8f2830f45888/tokenizer_config.json "HTTP/1.1 200 OK"
+2026-06-24 23:10:56,599 [INFO] stage_workers.thinker_tp1: Acquired GPU startup lock for stage thinker: /tmp/sglang_omni_gpu_3_startup.lock
+2026-06-24 23:10:56,674 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-Preview/resolve/main/tokenization_bailing.py "HTTP/1.1 404 Not Found"
+2026-06-24 23:10:56,734 [INFO] stage_workers.thinker_tp2: Acquired GPU startup lock for stage thinker: /tmp/sglang_omni_gpu_4_startup.lock
+2026-06-24 23:10:56,774 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-Preview/resolve/main/tokenizer_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-06-24 23:10:56,789 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/inclusionAI/Ming-flash-omni-Preview/8791771443ae7525ee27140dcf6c8f2830f45888/tokenizer_config.json "HTTP/1.1 200 OK"
+2026-06-24 23:10:56,891 [INFO] httpx: HTTP Request: GET https://huggingface.co/api/models/inclusionAI/Ming-flash-omni-Preview/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+2026-06-24 23:10:56,897 [INFO] stage_workers.thinker_tp3: Acquired GPU startup lock for stage thinker: /tmp/sglang_omni_gpu_5_startup.lock
+2026-06-24 23:10:56,994 [INFO] httpx: HTTP Request: GET https://huggingface.co/api/models/inclusionAI/Ming-flash-omni-Preview/tree/main?recursive=true&expand=false "HTTP/1.1 200 OK"
+2026-06-24 23:10:57,042 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-06-24 23:10:57,058 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/inclusionAI/Ming-flash-omni-2.0/6a2e1dec07066d20f62a743ac7c34284e4a3932d/config.json "HTTP/1.1 200 OK"
+2026-06-24 23:10:57,159 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/tokenizer_config.json "HTTP/1.1 404 Not Found"
+2026-06-24 23:10:57,260 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/tokenizer_config.json "HTTP/1.1 404 Not Found"
+2026-06-24 23:10:57,364 [INFO] httpx: HTTP Request: GET https://huggingface.co/api/models/inclusionAI/Ming-flash-omni-2.0/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+2026-06-24 23:10:57,465 [INFO] httpx: HTTP Request: GET https://huggingface.co/api/models/inclusionAI/Ming-flash-omni-2.0/tree/main?recursive=true&expand=false "HTTP/1.1 200 OK"
+2026-06-24 23:10:57,527 [INFO] sglang_omni.models.ming_omni.components.audio_encoder: Loading Ming audio encoder weights from inclusionAI/Ming-flash-omni-2.0
+2026-06-24 23:10:57,571 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/tokenizer.json "HTTP/1.1 404 Not Found"
+2026-06-24 23:10:57,630 [INFO] httpx: HTTP Request: GET https://huggingface.co/api/models/inclusionAI/Ming-flash-omni-2.0/revision/main "HTTP/1.1 200 OK"
+Fetching 98 files:   0%|          | 0/98 [00:00<?, ?it/s]Fetching 98 files: 100%|██████████| 98/98 [00:00<00:00, 6076.01it/s]
+2026-06-24 23:10:57,673 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/tokenizer.model "HTTP/1.1 404 Not Found"
+2026-06-24 23:10:57,773 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/added_tokens.json "HTTP/1.1 404 Not Found"
+2026-06-24 23:10:57,779 [INFO] httpx: HTTP Request: GET https://huggingface.co/api/models/inclusionAI/Ming-flash-omni-Preview "HTTP/1.1 200 OK"
+2026-06-24 23:10:57,817 [INFO] sglang_omni.pipeline.control_plane: Stage preprocessing control plane started
+2026-06-24 23:10:57,818 [INFO] sglang_omni.pipeline.stage.runtime: Stage preprocessing started
+2026-06-24 23:10:57,818 [INFO] stage_workers.preprocessing: Process preprocessing ready with stages=['preprocessing']
+2026-06-24 23:10:57,818 [INFO] sglang_omni.pipeline.stage_workers: Process preprocessing ready
+2026-06-24 23:10:57,878 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/special_tokens_map.json "HTTP/1.1 404 Not Found"
+2026-06-24 23:10:57,977 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/tokenizer_config.json "HTTP/1.1 404 Not Found"
+2026-06-24 23:10:58,078 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/chat_template.jinja "HTTP/1.1 404 Not Found"
+2026-06-24 23:10:58,179 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/tokenizer_config.json "HTTP/1.1 404 Not Found"
+2026-06-24 23:10:58,278 [INFO] httpx: HTTP Request: GET https://huggingface.co/api/models/inclusionAI/Ming-flash-omni-2.0/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+2026-06-24 23:10:58,306 [INFO] stage_workers.image_encoder: Acquired GPU startup lock for stage image_encoder: /tmp/sglang_omni_gpu_2_startup.lock
+2026-06-24 23:10:58,309 [INFO] sglang_omni.pipeline.control_plane: Stage audio_encoder control plane started
+2026-06-24 23:10:58,309 [INFO] sglang_omni.pipeline.stage.runtime: Scheduler thread for stage audio_encoder set CUDA device to 0
+2026-06-24 23:10:58,309 [INFO] sglang_omni.pipeline.stage.runtime: Stage audio_encoder started
+2026-06-24 23:10:58,310 [INFO] stage_workers.audio_encoder: Process audio_encoder ready with stages=['audio_encoder']
+2026-06-24 23:10:58,310 [INFO] sglang_omni.pipeline.stage_workers: Process audio_encoder ready
+2026-06-24 23:10:58,379 [INFO] httpx: HTTP Request: GET https://huggingface.co/api/models/inclusionAI/Ming-flash-omni-2.0/tree/main?recursive=true&expand=false "HTTP/1.1 200 OK"
+2026-06-24 23:10:58,484 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/tokenizer.json "HTTP/1.1 404 Not Found"
+2026-06-24 23:10:58,579 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/tokenizer.model "HTTP/1.1 404 Not Found"
+2026-06-24 23:10:58,691 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/added_tokens.json "HTTP/1.1 404 Not Found"
+2026-06-24 23:10:58,798 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/special_tokens_map.json "HTTP/1.1 404 Not Found"
+2026-06-24 23:10:58,899 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/tokenizer_config.json "HTTP/1.1 404 Not Found"
+2026-06-24 23:10:59,001 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/chat_template.jinja "HTTP/1.1 404 Not Found"
+2026-06-24 23:10:59,002 [WARNING] sglang_omni.models.ming_omni.components.common: Tokenizer not found in inclusionAI/Ming-flash-omni-2.0, falling back to inclusionAI/Ming-flash-omni-Preview
+2026-06-24 23:10:59,099 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-Preview/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-06-24 23:10:59,113 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/inclusionAI/Ming-flash-omni-Preview/8791771443ae7525ee27140dcf6c8f2830f45888/config.json "HTTP/1.1 200 OK"
+2026-06-24 23:10:59,217 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-Preview/resolve/main/tokenizer_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-06-24 23:10:59,231 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/inclusionAI/Ming-flash-omni-Preview/8791771443ae7525ee27140dcf6c8f2830f45888/tokenizer_config.json "HTTP/1.1 200 OK"
+2026-06-24 23:10:59,334 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-Preview/resolve/main/tokenization_bailing.py "HTTP/1.1 404 Not Found"
+2026-06-24 23:10:59,432 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-Preview/resolve/main/tokenizer_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-06-24 23:10:59,446 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/inclusionAI/Ming-flash-omni-Preview/8791771443ae7525ee27140dcf6c8f2830f45888/tokenizer_config.json "HTTP/1.1 200 OK"
+2026-06-24 23:10:59,552 [INFO] httpx: HTTP Request: GET https://huggingface.co/api/models/inclusionAI/Ming-flash-omni-Preview/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+2026-06-24 23:10:59,656 [INFO] httpx: HTTP Request: GET https://huggingface.co/api/models/inclusionAI/Ming-flash-omni-Preview/tree/main?recursive=true&expand=false "HTTP/1.1 200 OK"
+2026-06-24 23:11:00,403 [INFO] httpx: HTTP Request: GET https://huggingface.co/api/models/inclusionAI/Ming-flash-omni-Preview "HTTP/1.1 200 OK"
+2026-06-24 23:11:00,428 [INFO] sglang_omni.pipeline.control_plane: Stage decode control plane started
+2026-06-24 23:11:00,428 [INFO] sglang_omni.pipeline.stage.runtime: Stage decode started
+2026-06-24 23:11:00,428 [INFO] stage_workers.decode: Process decode ready with stages=['decode']
+2026-06-24 23:11:00,429 [INFO] sglang_omni.pipeline.stage_workers: Process decode ready
+2026-06-24 23:11:00,583 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-06-24 23:11:00,599 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/inclusionAI/Ming-flash-omni-2.0/6a2e1dec07066d20f62a743ac7c34284e4a3932d/config.json "HTTP/1.1 200 OK"
+2026-06-24 23:11:00,699 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/generation_config.json "HTTP/1.1 404 Not Found"
+2026-06-24 23:11:00,700 [WARNING] sglang.srt.utils.common: Failed to load generation config for inclusionAI/Ming-flash-omni-2.0: inclusionAI/Ming-flash-omni-2.0 does not appear to have a file named generation_config.json. Checkout 'https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/tree/main' for available files.. Proceeding without generation config.
+2026-06-24 23:11:00,803 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/hf_quant_config.json "HTTP/1.1 404 Not Found"
+2026-06-24 23:11:00,894 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-06-24 23:11:00,910 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/inclusionAI/Ming-flash-omni-2.0/6a2e1dec07066d20f62a743ac7c34284e4a3932d/config.json "HTTP/1.1 200 OK"
+2026-06-24 23:11:00,926 [INFO] sglang.srt.server_args: Attention backend not specified. Use fa3 backend by default.
+2026-06-24 23:11:01,012 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/generation_config.json "HTTP/1.1 404 Not Found"
+2026-06-24 23:11:01,013 [WARNING] sglang.srt.utils.common: Failed to load generation config for inclusionAI/Ming-flash-omni-2.0: inclusionAI/Ming-flash-omni-2.0 does not appear to have a file named generation_config.json. Checkout 'https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/tree/main' for available files.. Proceeding without generation config.
+2026-06-24 23:11:01,025 [INFO] httpx: HTTP Request: GET https://huggingface.co/api/models/inclusionAI/Ming-flash-omni-2.0 "HTTP/1.1 200 OK"
+2026-06-24 23:11:01,114 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/hf_quant_config.json "HTTP/1.1 404 Not Found"
+2026-06-24 23:11:01,170 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-06-24 23:11:01,184 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/inclusionAI/Ming-flash-omni-2.0/6a2e1dec07066d20f62a743ac7c34284e4a3932d/config.json "HTTP/1.1 200 OK"
+2026-06-24 23:11:01,237 [INFO] sglang.srt.server_args: Attention backend not specified. Use fa3 backend by default.
+2026-06-24 23:11:01,282 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/generation_config.json "HTTP/1.1 404 Not Found"
+2026-06-24 23:11:01,283 [WARNING] sglang.srt.utils.common: Failed to load generation config for inclusionAI/Ming-flash-omni-2.0: inclusionAI/Ming-flash-omni-2.0 does not appear to have a file named generation_config.json. Checkout 'https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/tree/main' for available files.. Proceeding without generation config.
+2026-06-24 23:11:01,338 [INFO] httpx: HTTP Request: GET https://huggingface.co/api/models/inclusionAI/Ming-flash-omni-2.0 "HTTP/1.1 200 OK"
+2026-06-24 23:11:01,384 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/hf_quant_config.json "HTTP/1.1 404 Not Found"
+2026-06-24 23:11:01,557 [INFO] sglang.srt.server_args: Attention backend not specified. Use fa3 backend by default.
+2026-06-24 23:11:01,646 [INFO] httpx: HTTP Request: GET https://huggingface.co/api/models/inclusionAI/Ming-flash-omni-2.0/revision/main "HTTP/1.1 200 OK"
+Fetching 98 files:   0%|          | 0/98 [00:00<?, ?it/s]Fetching 98 files: 100%|██████████| 98/98 [00:00<00:00, 6339.81it/s]
+2026-06-24 23:11:01,896 [INFO] httpx: HTTP Request: GET https://huggingface.co/api/models/inclusionAI/Ming-flash-omni-2.0 "HTTP/1.1 200 OK"
+2026-06-24 23:11:03,346 [INFO] sglang.srt.utils.common: Multimodal attention backend not set. Use fa3.
+2026-06-24 23:11:03,346 [INFO] sglang.srt.utils.common: Using fa3 as multimodal attention backend.
+2026-06-24 23:11:03,534 [INFO] sglang_omni.models.ming_omni.components.image_encoder: MingImageEncoder loaded: 351 vision + 4 projector weights
+2026-06-24 23:11:03,877 [INFO] stage_workers.thinker_tp0: Acquired GPU startup lock for stage thinker: /tmp/sglang_omni_gpu_2_startup.lock
+2026-06-24 23:11:03,878 [INFO] sglang_omni.pipeline.control_plane: Stage image_encoder control plane started
+2026-06-24 23:11:03,878 [INFO] sglang_omni.pipeline.stage.runtime: Scheduler thread for stage image_encoder set CUDA device to 0
+2026-06-24 23:11:03,878 [INFO] sglang_omni.pipeline.stage.runtime: Stage image_encoder started
+2026-06-24 23:11:03,878 [INFO] stage_workers.image_encoder: Process image_encoder ready with stages=['image_encoder']
+2026-06-24 23:11:03,879 [INFO] sglang_omni.pipeline.stage_workers: Process image_encoder ready
+2026-06-24 23:11:04,169 [WARNING] sglang_omni.models.ming_omni.components.common: Tokenizer not found in inclusionAI/Ming-flash-omni-2.0, falling back to inclusionAI/Ming-flash-omni-Preview
+2026-06-24 23:11:04,488 [WARNING] sglang_omni.models.ming_omni.components.common: Tokenizer not found in inclusionAI/Ming-flash-omni-2.0, falling back to inclusionAI/Ming-flash-omni-Preview
+2026-06-24 23:11:05,109 [WARNING] sglang_omni.models.ming_omni.components.common: Tokenizer not found in inclusionAI/Ming-flash-omni-2.0, falling back to inclusionAI/Ming-flash-omni-Preview
+Fetching 98 files:   0%|          | 0/98 [00:00<?, ?it/s]Fetching 98 files: 100%|██████████| 98/98 [00:00<00:00, 6384.12it/s]
+2026-06-24 23:11:05,796 [INFO] sglang_omni.model_runner.model_worker: Configured SGLang backend policy: arch=BailingMoeV2ForCausalLM effective_quantization=None server_quantization=None moe_runner_backend=auto fp8_gemm_backend=auto
+Fetching 98 files:   0%|          | 0/98 [00:00<?, ?it/s]Fetching 98 files: 100%|██████████| 98/98 [00:00<00:00, 6075.20it/s]
+2026-06-24 23:11:06,132 [INFO] sglang_omni.model_runner.model_worker: Configured SGLang backend policy: arch=BailingMoeV2ForCausalLM effective_quantization=None server_quantization=None moe_runner_backend=auto fp8_gemm_backend=auto
+2026-06-24 23:11:06,341 [INFO] sglang.srt.model_executor.model_runner: Init torch distributed begin.
+Fetching 98 files:   0%|          | 0/98 [00:00<?, ?it/s]Fetching 98 files: 100%|██████████| 98/98 [00:00<00:00, 6876.14it/s]
+2026-06-24 23:11:06,685 [INFO] sglang.srt.model_executor.model_runner: Init torch distributed begin.
+2026-06-24 23:11:06,746 [INFO] sglang_omni.model_runner.model_worker: Configured SGLang backend policy: arch=BailingMoeV2ForCausalLM effective_quantization=None server_quantization=None moe_runner_backend=auto fp8_gemm_backend=auto
+2026-06-24 23:11:07,323 [INFO] sglang.srt.model_executor.model_runner: Init torch distributed begin.
+2026-06-24 23:11:07,687 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-06-24 23:11:07,701 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/inclusionAI/Ming-flash-omni-2.0/6a2e1dec07066d20f62a743ac7c34284e4a3932d/config.json "HTTP/1.1 200 OK"
+2026-06-24 23:11:07,802 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/generation_config.json "HTTP/1.1 404 Not Found"
+2026-06-24 23:11:07,802 [WARNING] sglang.srt.utils.common: Failed to load generation config for inclusionAI/Ming-flash-omni-2.0: inclusionAI/Ming-flash-omni-2.0 does not appear to have a file named generation_config.json. Checkout 'https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/tree/main' for available files.. Proceeding without generation config.
+2026-06-24 23:11:07,899 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/inclusionAI/Ming-flash-omni-2.0/resolve/main/hf_quant_config.json "HTTP/1.1 404 Not Found"
+2026-06-24 23:11:08,020 [INFO] sglang.srt.server_args: Attention backend not specified. Use fa3 backend by default.
+2026-06-24 23:11:08,126 [INFO] httpx: HTTP Request: GET https://huggingface.co/api/models/inclusionAI/Ming-flash-omni-2.0 "HTTP/1.1 200 OK"
+2026-06-24 23:11:11,212 [WARNING] sglang_omni.models.ming_omni.components.common: Tokenizer not found in inclusionAI/Ming-flash-omni-2.0, falling back to inclusionAI/Ming-flash-omni-Preview
+Fetching 98 files:   0%|          | 0/98 [00:00<?, ?it/s]Fetching 98 files: 100%|██████████| 98/98 [00:00<00:00, 6899.45it/s]
+2026-06-24 23:11:12,795 [INFO] sglang_omni.model_runner.model_worker: Configured SGLang backend policy: arch=BailingMoeV2ForCausalLM effective_quantization=None server_quantization=None moe_runner_backend=auto fp8_gemm_backend=auto
+2026-06-24 23:11:13,301 [INFO] sglang.srt.model_executor.model_runner: Init torch distributed begin.
+2026-06-24 23:11:16,820 [INFO] sglang.srt.distributed.device_communicators.pynccl: sglang is using nccl==2.28.9
+2026-06-24 23:11:18,429 [INFO] sglang.srt.model_executor.model_runner: Init torch distributed ends. elapsed=11.11 s, mem usage=0.95 GB
+2026-06-24 23:11:18,429 [INFO] sglang.srt.model_executor.model_runner: Init torch distributed ends. elapsed=5.13 s, mem usage=0.95 GB
+2026-06-24 23:11:18,429 [INFO] sglang.srt.model_executor.model_runner: Init torch distributed ends. elapsed=12.09 s, mem usage=0.95 GB
+2026-06-24 23:11:18,429 [INFO] sglang.srt.model_executor.model_runner: Init torch distributed ends. elapsed=11.74 s, mem usage=0.95 GB
+2026-06-24 23:11:18,430 [INFO] sglang.srt.model_executor.model_runner: Load weight begin. avail mem=74.03 GB
+2026-06-24 23:11:18,430 [INFO] sglang.srt.model_executor.model_runner: Load weight begin. avail mem=77.71 GB
+2026-06-24 23:11:18,430 [INFO] sglang.srt.model_executor.model_runner: Load weight begin. avail mem=77.71 GB
+2026-06-24 23:11:18,431 [INFO] sglang.srt.model_executor.model_runner: Load weight begin. avail mem=77.71 GB
+2026-06-24 23:11:20,651 [WARNING] sglang_omni.models.ming_omni.components.common: Tokenizer not found in inclusionAI/Ming-flash-omni-2.0, falling back to inclusionAI/Ming-flash-omni-Preview
+2026-06-24 23:11:20,658 [WARNING] sglang_omni.models.ming_omni.components.common: Tokenizer not found in inclusionAI/Ming-flash-omni-2.0, falling back to inclusionAI/Ming-flash-omni-Preview
+2026-06-24 23:11:20,660 [WARNING] sglang_omni.models.ming_omni.components.common: Tokenizer not found in inclusionAI/Ming-flash-omni-2.0, falling back to inclusionAI/Ming-flash-omni-Preview
+2026-06-24 23:11:20,697 [WARNING] sglang_omni.models.ming_omni.components.common: Tokenizer not found in inclusionAI/Ming-flash-omni-2.0, falling back to inclusionAI/Ming-flash-omni-Preview
+2026-06-24 23:11:22,093 [INFO] sglang.srt.model_loader.weight_utils: Found local HF snapshot for inclusionAI/Ming-flash-omni-2.0 at /root/.cache/huggingface/hub/models--inclusionAI--Ming-flash-omni-2.0/snapshots/6a2e1dec07066d20f62a743ac7c34284e4a3932d; skipping download.
+Multi-thread loading shards:   0% Completed | 0/42 [00:00<?, ?it/s]Multi-thread loading shards:   2% Completed | 1/42 [00:00<00:09,  4.50it/s]Multi-thread loading shards:  26% Completed | 11/42 [00:00<00:01, 29.08it/s]Multi-thread loading shards:  45% Completed | 19/42 [00:00<00:01, 20.18it/s]Multi-thread loading shards:  64% Completed | 27/42 [00:01<00:00, 25.19it/s]Multi-thread loading shards:  83% Completed | 35/42 [00:01<00:00, 29.23it/s]Multi-thread loading shards: 100% Completed | 42/42 [00:01<00:00, 28.85it/s]
+2026-06-24 23:11:36,395 [WARNING] sglang_omni.models.ming_omni.thinker: Ming thinker text loader skipped unmatched weights: count=124 sample=['layers.1.mlp.audio_gate.expert_bias', 'layers.1.mlp.audio_gate.weight', 'layers.1.mlp.image_gate.expert_bias', 'layers.1.mlp.image_gate.weight', 'layers.2.mlp.audio_gate.expert_bias', 'layers.2.mlp.audio_gate.weight', 'layers.2.mlp.image_gate.expert_bias', 'layers.2.mlp.image_gate.weight', 'layers.3.mlp.audio_gate.expert_bias', 'layers.3.mlp.audio_gate.weight']
+2026-06-24 23:11:36,396 [INFO] sglang_omni.models.ming_omni.thinker: Ming thinker text loader summary: loaded=24160 skipped=124 unmatched=124
+2026-06-24 23:11:36,396 [INFO] sglang_omni.models.ming_omni.thinker: Ming top-level loader summary: lm_head_loaded=1 tower_skipped=846 text_weight_candidates=24284
+2026-06-24 23:11:36,525 [WARNING] sglang_omni.models.ming_omni.thinker: Ming thinker text loader skipped unmatched weights: count=124 sample=['layers.1.mlp.audio_gate.expert_bias', 'layers.1.mlp.audio_gate.weight', 'layers.1.mlp.image_gate.expert_bias', 'layers.1.mlp.image_gate.weight', 'layers.2.mlp.audio_gate.expert_bias', 'layers.2.mlp.audio_gate.weight', 'layers.2.mlp.image_gate.expert_bias', 'layers.2.mlp.image_gate.weight', 'layers.3.mlp.audio_gate.expert_bias', 'layers.3.mlp.audio_gate.weight']
+2026-06-24 23:11:36,525 [INFO] sglang_omni.models.ming_omni.thinker: Ming thinker text loader summary: loaded=24160 skipped=124 unmatched=124
+2026-06-24 23:11:36,525 [INFO] sglang_omni.models.ming_omni.thinker: Ming top-level loader summary: lm_head_loaded=1 tower_skipped=846 text_weight_candidates=24284
+2026-06-24 23:11:36,921 [WARNING] sglang_omni.models.ming_omni.thinker: Ming thinker text loader skipped unmatched weights: count=124 sample=['layers.1.mlp.audio_gate.expert_bias', 'layers.1.mlp.audio_gate.weight', 'layers.1.mlp.image_gate.expert_bias', 'layers.1.mlp.image_gate.weight', 'layers.2.mlp.audio_gate.expert_bias', 'layers.2.mlp.audio_gate.weight', 'layers.2.mlp.image_gate.expert_bias', 'layers.2.mlp.image_gate.weight', 'layers.3.mlp.audio_gate.expert_bias', 'layers.3.mlp.audio_gate.weight']
+2026-06-24 23:11:36,921 [INFO] sglang_omni.models.ming_omni.thinker: Ming thinker text loader summary: loaded=24160 skipped=124 unmatched=124
+2026-06-24 23:11:36,921 [INFO] sglang_omni.models.ming_omni.thinker: Ming top-level loader summary: lm_head_loaded=1 tower_skipped=846 text_weight_candidates=24284
+2026-06-24 23:11:37,283 [WARNING] sglang_omni.models.ming_omni.thinker: Ming thinker text loader skipped unmatched weights: count=124 sample=['layers.1.mlp.audio_gate.expert_bias', 'layers.1.mlp.audio_gate.weight', 'layers.1.mlp.image_gate.expert_bias', 'layers.1.mlp.image_gate.weight', 'layers.2.mlp.audio_gate.expert_bias', 'layers.2.mlp.audio_gate.weight', 'layers.2.mlp.image_gate.expert_bias', 'layers.2.mlp.image_gate.weight', 'layers.3.mlp.audio_gate.expert_bias', 'layers.3.mlp.audio_gate.weight']
+2026-06-24 23:11:37,283 [INFO] sglang_omni.models.ming_omni.thinker: Ming thinker text loader summary: loaded=24160 skipped=124 unmatched=124
+2026-06-24 23:11:37,283 [INFO] sglang_omni.models.ming_omni.thinker: Ming top-level loader summary: lm_head_loaded=1 tower_skipped=846 text_weight_candidates=24284
+2026-06-24 23:11:38,726 [INFO] sglang.srt.model_executor.model_runner: Load weight end. elapsed=20.30 s, type=BailingMoeV2ForCausalLM, avail mem=29.74 GB, mem usage=47.97 GB.
+2026-06-24 23:11:38,814 [INFO] sglang.srt.model_executor.model_runner: Load weight end. elapsed=20.38 s, type=BailingMoeV2ForCausalLM, avail mem=26.05 GB, mem usage=47.97 GB.
+2026-06-24 23:11:39,314 [INFO] sglang.srt.model_executor.model_runner: Load weight end. elapsed=20.88 s, type=BailingMoeV2ForCausalLM, avail mem=29.74 GB, mem usage=47.97 GB.
+2026-06-24 23:11:40,001 [INFO] sglang.srt.model_executor.model_runner: Load weight end. elapsed=21.57 s, type=BailingMoeV2ForCausalLM, avail mem=29.74 GB, mem usage=47.97 GB.
+2026-06-24 23:11:40,003 [INFO] sglang.srt.model_executor.model_runner: Using KV cache dtype: torch.bfloat16
+2026-06-24 23:11:40,027 [INFO] sglang.srt.mem_cache.memory_pool: KV Cache is allocated. #tokens: 737148, K size: 5.62 GB, V size: 5.62 GB
+2026-06-24 23:11:40,027 [INFO] sglang.srt.mem_cache.memory_pool: KV Cache is allocated. #tokens: 737148, K size: 5.62 GB, V size: 5.62 GB
+2026-06-24 23:11:40,027 [INFO] sglang.srt.model_executor.model_runner_kv_cache_mixin: Memory pool end. avail mem=18.49 GB
+2026-06-24 23:11:40,027 [INFO] sglang.srt.model_executor.model_runner_kv_cache_mixin: Memory pool end. avail mem=18.49 GB
+2026-06-24 23:11:40,027 [INFO] sglang.srt.mem_cache.memory_pool: KV Cache is allocated. #tokens: 737148, K size: 5.62 GB, V size: 5.62 GB
+2026-06-24 23:11:40,028 [INFO] sglang.srt.model_executor.model_runner_kv_cache_mixin: Memory pool end. avail mem=18.49 GB
+2026-06-24 23:11:40,028 [INFO] sglang.srt.mem_cache.memory_pool: KV Cache is allocated. #tokens: 737148, K size: 5.62 GB, V size: 5.62 GB
+2026-06-24 23:11:40,028 [INFO] sglang.srt.model_executor.model_runner_kv_cache_mixin: Memory pool end. avail mem=14.80 GB
+2026-06-24 23:11:40,106 [INFO] sglang.srt.model_executor.model_runner: Capture cuda graph begin. This can take up to several minutes. avail mem=18.39 GB
+2026-06-24 23:11:40,108 [INFO] sglang.srt.model_executor.model_runner: Capture cuda graph begin. This can take up to several minutes. avail mem=18.39 GB
+2026-06-24 23:11:40,108 [INFO] sglang.srt.model_executor.model_runner: Capture cuda graph begin. This can take up to several minutes. avail mem=18.39 GB
+2026-06-24 23:11:40,111 [INFO] sglang.srt.model_executor.model_runner: Capture cuda graph begin. This can take up to several minutes. avail mem=14.71 GB
+2026-06-24 23:11:40,112 [INFO] sglang.srt.model_executor.cuda_graph_runner: Capture cuda graph bs [1, 2, 4, 8, 12, 16]
+  0%|          | 0/6 [00:00<?, ?it/s]Capturing batches (bs=16 avail_mem=14.69 GB):   0%|          | 0/6 [00:00<?, ?it/s]2026-06-24 23:11:42,231 [WARNING] sglang.srt.layers.moe.moe_runner.triton_utils.fused_moe_triton_config: Using default MoE kernel config. Performance might be sub-optimal! Config file not found at /data/.venv/lib/python3.12/site-packages/sglang/srt/layers/moe/moe_runner/triton_utils/configs/triton_3_6_0/E=256,N=256,device_name=NVIDIA_H100_80GB_HBM3.json, you can create them with https://github.com/sgl-project/sglang/tree/main/benchmark/kernels/fused_moe_triton
+2026-06-24 23:11:42,231 [WARNING] sglang.srt.layers.moe.moe_runner.triton_utils.fused_moe_triton_config: Using default MoE kernel config. Performance might be sub-optimal! Config file not found at /data/.venv/lib/python3.12/site-packages/sglang/srt/layers/moe/moe_runner/triton_utils/configs/triton_3_6_0/E=256,N=256,device_name=NVIDIA_H100_80GB_HBM3.json, you can create them with https://github.com/sgl-project/sglang/tree/main/benchmark/kernels/fused_moe_triton
+2026-06-24 23:11:42,231 [WARNING] sglang.srt.layers.moe.moe_runner.triton_utils.fused_moe_triton_config: Using MoE kernel config with down_moe=False. Performance might be sub-optimal! Config file not found at /data/.venv/lib/python3.12/site-packages/sglang/srt/layers/moe/moe_runner/triton_utils/configs/triton_3_6_0/E=256,N=256,device_name=NVIDIA_H100_80GB_HBM3_down.json, you can create them with https://github.com/sgl-project/sglang/tree/main/benchmark/kernels/fused_moe_triton
+2026-06-24 23:11:42,231 [WARNING] sglang.srt.layers.moe.moe_runner.triton_utils.fused_moe_triton_config: Using MoE kernel config with down_moe=False. Performance might be sub-optimal! Config file not found at /data/.venv/lib/python3.12/site-packages/sglang/srt/layers/moe/moe_runner/triton_utils/configs/triton_3_6_0/E=256,N=256,device_name=NVIDIA_H100_80GB_HBM3_down.json, you can create them with https://github.com/sgl-project/sglang/tree/main/benchmark/kernels/fused_moe_triton
+2026-06-24 23:11:42,233 [WARNING] sglang.srt.layers.moe.moe_runner.triton_utils.fused_moe_triton_config: Using default MoE kernel config. Performance might be sub-optimal! Config file not found at /data/.venv/lib/python3.12/site-packages/sglang/srt/layers/moe/moe_runner/triton_utils/configs/triton_3_6_0/E=256,N=256,device_name=NVIDIA_H100_80GB_HBM3.json, you can create them with https://github.com/sgl-project/sglang/tree/main/benchmark/kernels/fused_moe_triton
+2026-06-24 23:11:42,233 [WARNING] sglang.srt.layers.moe.moe_runner.triton_utils.fused_moe_triton_config: Using MoE kernel config with down_moe=False. Performance might be sub-optimal! Config file not found at /data/.venv/lib/python3.12/site-packages/sglang/srt/layers/moe/moe_runner/triton_utils/configs/triton_3_6_0/E=256,N=256,device_name=NVIDIA_H100_80GB_HBM3_down.json, you can create them with https://github.com/sgl-project/sglang/tree/main/benchmark/kernels/fused_moe_triton
+2026-06-24 23:11:42,236 [WARNING] sglang.srt.layers.moe.moe_runner.triton_utils.fused_moe_triton_config: Using default MoE kernel config. Performance might be sub-optimal! Config file not found at /data/.venv/lib/python3.12/site-packages/sglang/srt/layers/moe/moe_runner/triton_utils/configs/triton_3_6_0/E=256,N=256,device_name=NVIDIA_H100_80GB_HBM3.json, you can create them with https://github.com/sgl-project/sglang/tree/main/benchmark/kernels/fused_moe_triton
+2026-06-24 23:11:42,236 [WARNING] sglang.srt.layers.moe.moe_runner.triton_utils.fused_moe_triton_config: Using MoE kernel config with down_moe=False. Performance might be sub-optimal! Config file not found at /data/.venv/lib/python3.12/site-packages/sglang/srt/layers/moe/moe_runner/triton_utils/configs/triton_3_6_0/E=256,N=256,device_name=NVIDIA_H100_80GB_HBM3_down.json, you can create them with https://github.com/sgl-project/sglang/tree/main/benchmark/kernels/fused_moe_triton
+Capturing batches (bs=16 avail_mem=14.69 GB):  17%|█▋        | 1/6 [00:02<00:10,  2.05s/it]Capturing batches (bs=12 avail_mem=14.62 GB):  17%|█▋        | 1/6 [00:02<00:10,  2.05s/it]Capturing batches (bs=12 avail_mem=14.62 GB):  33%|███▎      | 2/6 [00:02<00:04,  1.03s/it]Capturing batches (bs=8 avail_mem=14.61 GB):  33%|███▎      | 2/6 [00:02<00:04,  1.03s/it] Capturing batches (bs=8 avail_mem=14.61 GB):  50%|█████     | 3/6 [00:02<00:02,  1.49it/s]Capturing batches (bs=4 avail_mem=14.59 GB):  50%|█████     | 3/6 [00:02<00:02,  1.49it/s]Capturing batches (bs=4 avail_mem=14.59 GB):  67%|██████▋   | 4/6 [00:02<00:01,  1.84it/s]Capturing batches (bs=2 avail_mem=14.58 GB):  67%|██████▋   | 4/6 [00:02<00:01,  1.84it/s]Capturing batches (bs=2 avail_mem=14.58 GB):  83%|████████▎ | 5/6 [00:03<00:00,  2.52it/s]Capturing batches (bs=1 avail_mem=14.57 GB):  83%|████████▎ | 5/6 [00:03<00:00,  2.52it/s]Capturing batches (bs=1 avail_mem=14.57 GB): 100%|██████████| 6/6 [00:03<00:00,  2.91it/s]Capturing batches (bs=1 avail_mem=14.57 GB): 100%|██████████| 6/6 [00:03<00:00,  1.80it/s]
+2026-06-24 23:11:44,199 [INFO] sglang.srt.model_executor.model_runner: Capture cuda graph end. Time elapsed: 4.09 s. mem usage=0.16 GB. avail mem=14.55 GB.
+2026-06-24 23:11:44,199 [INFO] sglang.srt.model_executor.model_runner: Disable piecewise CUDA graph because --disable-piecewise-cuda-graph is set
+2026-06-24 23:11:44,209 [INFO] sglang.srt.model_executor.model_runner: Capture cuda graph end. Time elapsed: 4.10 s. mem usage=0.16 GB. avail mem=18.24 GB.
+2026-06-24 23:11:44,209 [INFO] sglang.srt.model_executor.model_runner: Disable piecewise CUDA graph because --disable-piecewise-cuda-graph is set
+2026-06-24 23:11:44,214 [INFO] sglang.srt.model_executor.model_runner: Capture cuda graph end. Time elapsed: 4.11 s. mem usage=0.16 GB. avail mem=18.24 GB.
+2026-06-24 23:11:44,214 [INFO] sglang.srt.model_executor.model_runner: Disable piecewise CUDA graph because --disable-piecewise-cuda-graph is set
+2026-06-24 23:11:44,217 [INFO] sglang_omni.pipeline.tp_control: TP follower control plane started for stage thinker
+2026-06-24 23:11:44,217 [INFO] sglang.srt.model_executor.model_runner: Capture cuda graph end. Time elapsed: 4.11 s. mem usage=0.16 GB. avail mem=18.24 GB.
+2026-06-24 23:11:44,218 [INFO] sglang_omni.pipeline.stage.runtime: Scheduler thread for stage thinker set CUDA device to 0
+2026-06-24 23:11:44,218 [INFO] sglang.srt.model_executor.model_runner: Disable piecewise CUDA graph because --disable-piecewise-cuda-graph is set
+2026-06-24 23:11:44,218 [INFO] sglang_omni.pipeline.stage.runtime: Stage thinker started
+2026-06-24 23:11:44,219 [INFO] stage_workers.thinker_tp2: Process thinker_tp2 ready with stages=['thinker']
+2026-06-24 23:11:44,222 [INFO] sglang_omni.pipeline.tp_control: TP follower control plane started for stage thinker
+2026-06-24 23:11:44,222 [INFO] sglang_omni.pipeline.stage.runtime: Scheduler thread for stage thinker set CUDA device to 0
+2026-06-24 23:11:44,222 [INFO] sglang_omni.pipeline.tp_control: TP follower control plane started for stage thinker
+2026-06-24 23:11:44,222 [INFO] sglang_omni.pipeline.stage.runtime: Stage thinker started
+2026-06-24 23:11:44,222 [INFO] stage_workers.thinker_tp3: Process thinker_tp3 ready with stages=['thinker']
+2026-06-24 23:11:44,222 [INFO] sglang_omni.pipeline.control_plane: Stage thinker control plane started
+2026-06-24 23:11:44,223 [INFO] sglang_omni.pipeline.stage.runtime: Scheduler thread for stage thinker set CUDA device to 0
+2026-06-24 23:11:44,223 [INFO] sglang_omni.pipeline.stage.runtime: Stage thinker started
+2026-06-24 23:11:44,223 [INFO] stage_workers.thinker_tp1: Process thinker_tp1 ready with stages=['thinker']
+2026-06-24 23:11:44,223 [INFO] sglang_omni.pipeline.stage.runtime: Scheduler thread for stage thinker set CUDA device to 0
+2026-06-24 23:11:44,223 [INFO] sglang_omni.pipeline.stage.runtime: Stage thinker started
+2026-06-24 23:11:44,223 [INFO] stage_workers.thinker_tp0: Process thinker_tp0 ready with stages=['thinker']
+2026-06-24 23:11:44,223 [INFO] sglang_omni.pipeline.stage_workers: Process thinker_tp0 ready
+2026-06-24 23:11:44,223 [INFO] sglang_omni.pipeline.stage_workers: Process thinker_tp1 ready
+2026-06-24 23:11:44,223 [INFO] sglang_omni.pipeline.stage_workers: Process thinker_tp2 ready
+2026-06-24 23:11:44,223 [INFO] sglang_omni.pipeline.stage_workers: Process thinker_tp3 ready
+2026-06-24 23:11:44,224 [INFO] sglang_omni.pipeline.coordinator: Coordinator registered stage: preprocessing at ipc:///tmp/sglang_omni/inclusionai-ming-flash-omni-2-0-mie9eox1/stage_preprocessing.sock
+2026-06-24 23:11:44,224 [INFO] sglang_omni.pipeline.coordinator: Coordinator registered stage: audio_encoder at ipc:///tmp/sglang_omni/inclusionai-ming-flash-omni-2-0-mie9eox1/stage_audio_encoder.sock
+2026-06-24 23:11:44,224 [INFO] sglang_omni.pipeline.coordinator: Coordinator registered stage: image_encoder at ipc:///tmp/sglang_omni/inclusionai-ming-flash-omni-2-0-mie9eox1/stage_image_encoder.sock
+2026-06-24 23:11:44,224 [INFO] sglang_omni.pipeline.coordinator: Coordinator registered stage: mm_aggregate at ipc:///tmp/sglang_omni/inclusionai-ming-flash-omni-2-0-mie9eox1/stage_mm_aggregate.sock
+2026-06-24 23:11:44,224 [INFO] sglang_omni.pipeline.coordinator: Coordinator registered stage: decode at ipc:///tmp/sglang_omni/inclusionai-ming-flash-omni-2-0-mie9eox1/stage_decode.sock
+2026-06-24 23:11:44,224 [INFO] sglang_omni.pipeline.coordinator: Coordinator registered stage: thinker at ipc:///tmp/sglang_omni/inclusionai-ming-flash-omni-2-0-mie9eox1/stage_thinker.sock
+2026-06-24 23:11:44,224 [INFO] sglang_omni.pipeline.mp_runner: MultiProcessPipelineRunner started: 6 stage(s), 9 process(es)
+2026-06-24 23:11:44,808 [INFO] sglang_omni.serve.launcher: Resolved placement/topology plan: placement={'topology': 'MingOmniPipelineConfig', 'pipeline': 'inclusionAI/Ming-flash-omni-2.0', 'process_groups': {'preprocessing': {'stages': ['preprocessing'], 'gpu': None}, 'audio_encoder': {'stages': ['audio_encoder'], 'gpu': 0}, 'image_encoder': {'stages': ['image_encoder'], 'gpu': 0}, 'mm_aggregate': {'stages': ['mm_aggregate'], 'gpu': None}, 'decode': {'stages': ['decode'], 'gpu': None}}, 'tp_process_groups': {'thinker': ['thinker_tp0', 'thinker_tp1', 'thinker_tp2', 'thinker_tp3']}, 'stage_runtime': {'audio_encoder': {'gpu': 0, 'total_gpu_memory_fraction': None, 'mem_fraction_static': None}, 'image_encoder': {'gpu': 0, 'total_gpu_memory_fraction': None, 'mem_fraction_static': None}, 'thinker': {'gpu': [0, 1, 2, 3], 'total_gpu_memory_fraction': None, 'mem_fraction_static': 0.8}}, 'gpus': {0: {'hardware': {'device_id': 2, 'name': 'NVIDIA H100 80GB HBM3', 'total_memory': '79.65GiB'}, 'stages': ['audio_encoder', 'image_encoder', 'thinker'], 'total_gpu_memory_fraction': 0.0, 'missing_fraction_stages': ['audio_encoder', 'image_encoder', 'thinker']}, 1: {'hardware': {'device_id': 3, 'name': 'NVIDIA H100 80GB HBM3', 'total_memory': '79.65GiB'}, 'stages': ['thinker'], 'total_gpu_memory_fraction': 0.0, 'missing_fraction_stages': ['thinker']}, 2: {'hardware': {'device_id': 4, 'name': 'NVIDIA H100 80GB HBM3', 'total_memory': '79.65GiB'}, 'stages': ['thinker'], 'total_gpu_memory_fraction': 0.0, 'missing_fraction_stages': ['thinker']}, 3: {'hardware': {'device_id': 5, 'name': 'NVIDIA H100 80GB HBM3', 'total_memory': '79.65GiB'}, 'stages': ['thinker'], 'total_gpu_memory_fraction': 0.0, 'missing_fraction_stages': ['thinker']}}}
+2026-06-24 23:11:44,808 [INFO] sglang_omni.serve.launcher: Pipeline 'inclusionAI/Ming-flash-omni-2.0' started (4 GPU(s))
+INFO:     Started server process [3795952]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8101 (Press CTRL+C to quit)
+INFO:     127.0.0.1:34506 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60660 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-06-24 23:11:59,834 [INFO] sglang_omni.pipeline.coordinator: Coordinator submitted req=ming-video-mmcache-20260624-2312-after-patch-cold_concurrent_same_media-0 to preprocessing at ipc:///tmp/sglang_omni/inclusionai-ming-flash-omni-2-0-mie9eox1/stage_preprocessing.sock
+INFO:     127.0.0.1:60670 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-06-24 23:11:59,835 [INFO] sglang_omni.pipeline.coordinator: Coordinator submitted req=ming-video-mmcache-20260624-2312-after-patch-cold_concurrent_same_media-2 to preprocessing at ipc:///tmp/sglang_omni/inclusionai-ming-flash-omni-2-0-mie9eox1/stage_preprocessing.sock
+INFO:     127.0.0.1:60680 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-06-24 23:11:59,835 [INFO] sglang_omni.pipeline.coordinator: Coordinator submitted req=ming-video-mmcache-20260624-2312-after-patch-cold_concurrent_same_media-3 to preprocessing at ipc:///tmp/sglang_omni/inclusionai-ming-flash-omni-2-0-mie9eox1/stage_preprocessing.sock
+INFO:     127.0.0.1:60692 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-06-24 23:11:59,836 [INFO] sglang_omni.pipeline.coordinator: Coordinator submitted req=ming-video-mmcache-20260624-2312-after-patch-cold_concurrent_same_media-1 to preprocessing at ipc:///tmp/sglang_omni/inclusionai-ming-flash-omni-2-0-mie9eox1/stage_preprocessing.sock
+qwen-vl-utils using torchcodec to read video.
+2026-06-24 23:11:59,934 [INFO] qwen_vl_utils.vision_process: set TORCHCODEC_NUM_THREADS: 8
+2026-06-24 23:12:01,438 [INFO] qwen_vl_utils.vision_process: torchcodec:  video_path='/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/draw.mp4', total_frames=197, video_fps=30, time=1.504s
+2026-06-24 23:12:02,245 [INFO] qwen_vl_utils.vision_process: set TORCHCODEC_NUM_THREADS: 8
+2026-06-24 23:12:03,676 [INFO] qwen_vl_utils.vision_process: torchcodec:  video_path='/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/draw.mp4', total_frames=197, video_fps=30, time=1.431s
+2026-06-24 23:12:03,774 [INFO] qwen_vl_utils.vision_process: set TORCHCODEC_NUM_THREADS: 8
+2026-06-24 23:12:04,916 [INFO] sglang.srt.observability.scheduler_metrics_mixin: Prefill batch, #new-seq: 1, #new-token: 1290, #cached-token: 0, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 62.34
+2026-06-24 23:12:05,190 [INFO] qwen_vl_utils.vision_process: torchcodec:  video_path='/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/draw.mp4', total_frames=197, video_fps=30, time=1.415s
+2026-06-24 23:12:05,295 [INFO] qwen_vl_utils.vision_process: set TORCHCODEC_NUM_THREADS: 8
+2026-06-24 23:12:05,525 [INFO] sglang.srt.observability.scheduler_metrics_mixin: Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 1289, token usage: 0.00, #running-req: 1, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 1.64
+2026-06-24 23:12:05,999 [INFO] sglang.srt.observability.scheduler_metrics_mixin: Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 1289, token usage: 0.00, #running-req: 2, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 2.11
+2026-06-24 23:12:06,435 [INFO] sglang_omni.models.ming_omni.bootstrap: Ming thinker result request_id=ming-video-mmcache-20260624-2312-after-patch-cold_concurrent_same_media-0 finish=stop output_len=15 output_tail=[259, 23278, 1661, 259, 38662, 436, 13, 156895] stop_hits=[156895]
+2026-06-24 23:12:06,435 [INFO] sglang_omni.models.ming_omni.bootstrap: Ming thinker result request_id=ming-video-mmcache-20260624-2312-after-patch-cold_concurrent_same_media-0 finish=stop output_len=15 output_tail=[259, 23278, 1661, 259, 38662, 436, 13, 156895] stop_hits=[156895]
+2026-06-24 23:12:06,435 [INFO] sglang_omni.models.ming_omni.bootstrap: Ming thinker result request_id=ming-video-mmcache-20260624-2312-after-patch-cold_concurrent_same_media-2 finish=stop output_len=15 output_tail=[259, 23278, 1661, 259, 38662, 436, 13, 156895] stop_hits=[156895]
+2026-06-24 23:12:06,435 [INFO] sglang_omni.models.ming_omni.bootstrap: Ming thinker result request_id=ming-video-mmcache-20260624-2312-after-patch-cold_concurrent_same_media-0 finish=stop output_len=15 output_tail=[259, 23278, 1661, 259, 38662, 436, 13, 156895] stop_hits=[156895]
+2026-06-24 23:12:06,435 [INFO] sglang_omni.models.ming_omni.bootstrap: Ming thinker result request_id=ming-video-mmcache-20260624-2312-after-patch-cold_concurrent_same_media-3 finish=stop output_len=15 output_tail=[259, 23278, 1661, 259, 38662, 436, 13, 156895] stop_hits=[156895]
+2026-06-24 23:12:06,435 [INFO] sglang_omni.models.ming_omni.bootstrap: Ming thinker result request_id=ming-video-mmcache-20260624-2312-after-patch-cold_concurrent_same_media-0 finish=stop output_len=15 output_tail=[259, 23278, 1661, 259, 38662, 436, 13, 156895] stop_hits=[156895]
+2026-06-24 23:12:06,435 [INFO] sglang_omni.models.ming_omni.bootstrap: Ming thinker result request_id=ming-video-mmcache-20260624-2312-after-patch-cold_concurrent_same_media-2 finish=stop output_len=15 output_tail=[259, 23278, 1661, 259, 38662, 436, 13, 156895] stop_hits=[156895]
+2026-06-24 23:12:06,435 [INFO] sglang_omni.models.ming_omni.bootstrap: Ming thinker result request_id=ming-video-mmcache-20260624-2312-after-patch-cold_concurrent_same_media-2 finish=stop output_len=15 output_tail=[259, 23278, 1661, 259, 38662, 436, 13, 156895] stop_hits=[156895]
+2026-06-24 23:12:06,435 [INFO] sglang_omni.models.ming_omni.bootstrap: Ming thinker result request_id=ming-video-mmcache-20260624-2312-after-patch-cold_concurrent_same_media-2 finish=stop output_len=15 output_tail=[259, 23278, 1661, 259, 38662, 436, 13, 156895] stop_hits=[156895]
+2026-06-24 23:12:06,435 [INFO] sglang_omni.models.ming_omni.bootstrap: Ming thinker result request_id=ming-video-mmcache-20260624-2312-after-patch-cold_concurrent_same_media-3 finish=stop output_len=15 output_tail=[259, 23278, 1661, 259, 38662, 436, 13, 156895] stop_hits=[156895]
+2026-06-24 23:12:06,435 [INFO] sglang_omni.models.ming_omni.bootstrap: Ming thinker result request_id=ming-video-mmcache-20260624-2312-after-patch-cold_concurrent_same_media-3 finish=stop output_len=15 output_tail=[259, 23278, 1661, 259, 38662, 436, 13, 156895] stop_hits=[156895]
+2026-06-24 23:12:06,435 [INFO] sglang_omni.models.ming_omni.bootstrap: Ming thinker result request_id=ming-video-mmcache-20260624-2312-after-patch-cold_concurrent_same_media-3 finish=stop output_len=15 output_tail=[259, 23278, 1661, 259, 38662, 436, 13, 156895] stop_hits=[156895]
+2026-06-24 23:12:06,653 [INFO] qwen_vl_utils.vision_process: torchcodec:  video_path='/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/draw.mp4', total_frames=197, video_fps=30, time=1.357s
+2026-06-24 23:12:07,321 [INFO] sglang.srt.observability.scheduler_metrics_mixin: Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 1289, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.76
+2026-06-24 23:12:07,420 [INFO] sglang_omni.models.ming_omni.bootstrap: Ming thinker result request_id=ming-video-mmcache-20260624-2312-after-patch-cold_concurrent_same_media-1 finish=stop output_len=15 output_tail=[259, 23278, 1661, 259, 38662, 436, 13, 156895] stop_hits=[156895]
+2026-06-24 23:12:07,420 [INFO] sglang_omni.models.ming_omni.bootstrap: Ming thinker result request_id=ming-video-mmcache-20260624-2312-after-patch-cold_concurrent_same_media-1 finish=stop output_len=15 output_tail=[259, 23278, 1661, 259, 38662, 436, 13, 156895] stop_hits=[156895]
+2026-06-24 23:12:07,420 [INFO] sglang_omni.models.ming_omni.bootstrap: Ming thinker result request_id=ming-video-mmcache-20260624-2312-after-patch-cold_concurrent_same_media-1 finish=stop output_len=15 output_tail=[259, 23278, 1661, 259, 38662, 436, 13, 156895] stop_hits=[156895]
+2026-06-24 23:12:07,420 [INFO] sglang_omni.models.ming_omni.bootstrap: Ming thinker result request_id=ming-video-mmcache-20260624-2312-after-patch-cold_concurrent_same_media-1 finish=stop output_len=15 output_tail=[259, 23278, 1661, 259, 38662, 436, 13, 156895] stop_hits=[156895]
+INFO:     127.0.0.1:39924 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-06-24 23:12:07,460 [INFO] sglang_omni.pipeline.coordinator: Coordinator submitted req=ming-video-mmcache-20260624-2312-after-patch-warm_sequential_same_media-0 to preprocessing at ipc:///tmp/sglang_omni/inclusionai-ming-flash-omni-2-0-mie9eox1/stage_preprocessing.sock
+2026-06-24 23:12:07,460 [INFO] qwen_vl_utils.vision_process: set TORCHCODEC_NUM_THREADS: 8
+2026-06-24 23:12:08,842 [INFO] qwen_vl_utils.vision_process: torchcodec:  video_path='/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/draw.mp4', total_frames=197, video_fps=30, time=1.381s
+2026-06-24 23:12:09,527 [INFO] sglang.srt.observability.scheduler_metrics_mixin: Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 1289, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.45
+2026-06-24 23:12:09,608 [INFO] sglang.srt.observability.scheduler_metrics_mixin: Decode batch, #running-req: 1, #token: 1302, token usage: 0.00, cuda graph: True, gen throughput (token/s): 2.68, #queue-req: 0
+2026-06-24 23:12:09,621 [INFO] sglang_omni.models.ming_omni.bootstrap: Ming thinker result request_id=ming-video-mmcache-20260624-2312-after-patch-warm_sequential_same_media-0 finish=stop output_len=15 output_tail=[259, 23278, 1661, 259, 38662, 436, 13, 156895] stop_hits=[156895]
+2026-06-24 23:12:09,621 [INFO] sglang_omni.models.ming_omni.bootstrap: Ming thinker result request_id=ming-video-mmcache-20260624-2312-after-patch-warm_sequential_same_media-0 finish=stop output_len=15 output_tail=[259, 23278, 1661, 259, 38662, 436, 13, 156895] stop_hits=[156895]
+2026-06-24 23:12:09,621 [INFO] sglang_omni.models.ming_omni.bootstrap: Ming thinker result request_id=ming-video-mmcache-20260624-2312-after-patch-warm_sequential_same_media-0 finish=stop output_len=15 output_tail=[259, 23278, 1661, 259, 38662, 436, 13, 156895] stop_hits=[156895]
+2026-06-24 23:12:09,621 [INFO] sglang_omni.models.ming_omni.bootstrap: Ming thinker result request_id=ming-video-mmcache-20260624-2312-after-patch-warm_sequential_same_media-0 finish=stop output_len=15 output_tail=[259, 23278, 1661, 259, 38662, 436, 13, 156895] stop_hits=[156895]
+INFO:     127.0.0.1:39926 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-06-24 23:12:09,657 [INFO] sglang_omni.pipeline.coordinator: Coordinator submitted req=ming-video-mmcache-20260624-2312-after-patch-warm_sequential_same_media-1 to preprocessing at ipc:///tmp/sglang_omni/inclusionai-ming-flash-omni-2-0-mie9eox1/stage_preprocessing.sock
+2026-06-24 23:12:09,658 [INFO] qwen_vl_utils.vision_process: set TORCHCODEC_NUM_THREADS: 8
+2026-06-24 23:12:11,008 [INFO] qwen_vl_utils.vision_process: torchcodec:  video_path='/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/draw.mp4', total_frames=197, video_fps=30, time=1.350s
+2026-06-24 23:12:11,666 [INFO] sglang.srt.observability.scheduler_metrics_mixin: Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 1289, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.47
+2026-06-24 23:12:11,759 [INFO] sglang_omni.models.ming_omni.bootstrap: Ming thinker result request_id=ming-video-mmcache-20260624-2312-after-patch-warm_sequential_same_media-1 finish=stop output_len=15 output_tail=[259, 23278, 1661, 259, 38662, 436, 13, 156895] stop_hits=[156895]
+2026-06-24 23:12:11,759 [INFO] sglang_omni.models.ming_omni.bootstrap: Ming thinker result request_id=ming-video-mmcache-20260624-2312-after-patch-warm_sequential_same_media-1 finish=stop output_len=15 output_tail=[259, 23278, 1661, 259, 38662, 436, 13, 156895] stop_hits=[156895]
+2026-06-24 23:12:11,759 [INFO] sglang_omni.models.ming_omni.bootstrap: Ming thinker result request_id=ming-video-mmcache-20260624-2312-after-patch-warm_sequential_same_media-1 finish=stop output_len=15 output_tail=[259, 23278, 1661, 259, 38662, 436, 13, 156895] stop_hits=[156895]
+2026-06-24 23:12:11,759 [INFO] sglang_omni.models.ming_omni.bootstrap: Ming thinker result request_id=ming-video-mmcache-20260624-2312-after-patch-warm_sequential_same_media-1 finish=stop output_len=15 output_tail=[259, 23278, 1661, 259, 38662, 436, 13, 156895] stop_hits=[156895]
+INFO:     127.0.0.1:39928 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-06-24 23:12:11,797 [INFO] sglang_omni.pipeline.coordinator: Coordinator submitted req=ming-video-mmcache-20260624-2312-after-patch-warm_sequential_same_media-2 to preprocessing at ipc:///tmp/sglang_omni/inclusionai-ming-flash-omni-2-0-mie9eox1/stage_preprocessing.sock
+2026-06-24 23:12:11,798 [INFO] qwen_vl_utils.vision_process: set TORCHCODEC_NUM_THREADS: 8
+2026-06-24 23:12:13,155 [INFO] qwen_vl_utils.vision_process: torchcodec:  video_path='/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/draw.mp4', total_frames=197, video_fps=30, time=1.357s
+2026-06-24 23:12:13,842 [INFO] sglang.srt.observability.scheduler_metrics_mixin: Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 1289, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.46
+2026-06-24 23:12:13,938 [INFO] sglang_omni.models.ming_omni.bootstrap: Ming thinker result request_id=ming-video-mmcache-20260624-2312-after-patch-warm_sequential_same_media-2 finish=stop output_len=15 output_tail=[259, 23278, 1661, 259, 38662, 436, 13, 156895] stop_hits=[156895]
+2026-06-24 23:12:13,938 [INFO] sglang_omni.models.ming_omni.bootstrap: Ming thinker result request_id=ming-video-mmcache-20260624-2312-after-patch-warm_sequential_same_media-2 finish=stop output_len=15 output_tail=[259, 23278, 1661, 259, 38662, 436, 13, 156895] stop_hits=[156895]
+2026-06-24 23:12:13,938 [INFO] sglang_omni.models.ming_omni.bootstrap: Ming thinker result request_id=ming-video-mmcache-20260624-2312-after-patch-warm_sequential_same_media-2 finish=stop output_len=15 output_tail=[259, 23278, 1661, 259, 38662, 436, 13, 156895] stop_hits=[156895]
+2026-06-24 23:12:13,938 [INFO] sglang_omni.models.ming_omni.bootstrap: Ming thinker result request_id=ming-video-mmcache-20260624-2312-after-patch-warm_sequential_same_media-2 finish=stop output_len=15 output_tail=[259, 23278, 1661, 259, 38662, 436, 13, 156895] stop_hits=[156895]
+INFO:     127.0.0.1:39944 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-06-24 23:12:13,972 [INFO] sglang_omni.pipeline.coordinator: Coordinator submitted req=ming-video-mmcache-20260624-2312-after-patch-warm_sequential_same_media-3 to preprocessing at ipc:///tmp/sglang_omni/inclusionai-ming-flash-omni-2-0-mie9eox1/stage_preprocessing.sock
+2026-06-24 23:12:13,972 [INFO] qwen_vl_utils.vision_process: set TORCHCODEC_NUM_THREADS: 8
+2026-06-24 23:12:15,335 [INFO] qwen_vl_utils.vision_process: torchcodec:  video_path='/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/draw.mp4', total_frames=197, video_fps=30, time=1.362s
+2026-06-24 23:12:15,943 [INFO] sglang.srt.observability.scheduler_metrics_mixin: Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 1289, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.48
+2026-06-24 23:12:16,010 [INFO] sglang.srt.observability.scheduler_metrics_mixin: Decode batch, #running-req: 1, #token: 1300, token usage: 0.00, cuda graph: True, gen throughput (token/s): 6.25, #queue-req: 0
+2026-06-24 23:12:16,037 [INFO] sglang_omni.models.ming_omni.bootstrap: Ming thinker result request_id=ming-video-mmcache-20260624-2312-after-patch-warm_sequential_same_media-3 finish=stop output_len=15 output_tail=[259, 23278, 1661, 259, 38662, 436, 13, 156895] stop_hits=[156895]
+2026-06-24 23:12:16,037 [INFO] sglang_omni.models.ming_omni.bootstrap: Ming thinker result request_id=ming-video-mmcache-20260624-2312-after-patch-warm_sequential_same_media-3 finish=stop output_len=15 output_tail=[259, 23278, 1661, 259, 38662, 436, 13, 156895] stop_hits=[156895]
+2026-06-24 23:12:16,037 [INFO] sglang_omni.models.ming_omni.bootstrap: Ming thinker result request_id=ming-video-mmcache-20260624-2312-after-patch-warm_sequential_same_media-3 finish=stop output_len=15 output_tail=[259, 23278, 1661, 259, 38662, 436, 13, 156895] stop_hits=[156895]
+2026-06-24 23:12:16,037 [INFO] sglang_omni.models.ming_omni.bootstrap: Ming thinker result request_id=ming-video-mmcache-20260624-2312-after-patch-warm_sequential_same_media-3 finish=stop output_len=15 output_tail=[259, 23278, 1661, 259, 38662, 436, 13, 156895] stop_hits=[156895]
+2026-06-24 23:12:35,465 [INFO] sglang_omni.pipeline.stage.runtime: Stage thinker stopped
+2026-06-24 23:12:35,465 [INFO] sglang_omni.pipeline.stage.runtime: Stage thinker stopped
+2026-06-24 23:12:35,465 [INFO] sglang_omni.pipeline.stage.runtime: Stage image_encoder stopped
+2026-06-24 23:12:35,465 [INFO] sglang_omni.pipeline.stage.runtime: Stage audio_encoder stopped
+2026-06-24 23:12:35,465 [INFO] sglang_omni.pipeline.stage.runtime: Stage preprocessing stopped
+2026-06-24 23:12:35,465 [INFO] sglang_omni.pipeline.stage.runtime: Stage mm_aggregate stopped
+2026-06-24 23:12:35,465 [INFO] sglang_omni.pipeline.stage.runtime: Stage thinker stopped
+2026-06-24 23:12:35,465 [INFO] sglang_omni.pipeline.stage.runtime: Stage thinker stopped
+2026-06-24 23:12:35,465 [INFO] sglang_omni.pipeline.stage.runtime: Stage decode stopped
+Process stage-audio_encoder:
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/sglang_omni/pipeline/stage_workers.py", line 420, in _start_and_run
+    await asyncio.gather(*tasks)
+asyncio.exceptions.CancelledError
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "/usr/lib/python3.12/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/sglang_omni/pipeline/stage_workers.py", line 372, in stage_process_main
+    _run_process(spec, ready_event, log)
+  File "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/sglang_omni/pipeline/stage_workers.py", line 430, in _run_process
+    asyncio.run(_start_and_run())
+  File "/usr/lib/python3.12/asyncio/runners.py", line 194, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/runners.py", line 123, in run
+    raise KeyboardInterrupt()
+KeyboardInterrupt
+Process stage-decode:
+Process stage-thinker-tp3-follower:
+Traceback (most recent call last):
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/sglang_omni/pipeline/stage_workers.py", line 420, in _start_and_run
+    await asyncio.gather(*tasks)
+asyncio.exceptions.CancelledError
+  File "/usr/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/sglang_omni/pipeline/stage_workers.py", line 420, in _start_and_run
+    await asyncio.gather(*tasks)
+asyncio.exceptions.CancelledError
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "/usr/lib/python3.12/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/sglang_omni/pipeline/stage_workers.py", line 372, in stage_process_main
+    _run_process(spec, ready_event, log)
+  File "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/sglang_omni/pipeline/stage_workers.py", line 430, in _run_process
+    asyncio.run(_start_and_run())
+  File "/usr/lib/python3.12/asyncio/runners.py", line 194, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/runners.py", line 123, in run
+    raise KeyboardInterrupt()
+KeyboardInterrupt
+  File "/usr/lib/python3.12/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "/usr/lib/python3.12/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/sglang_omni/pipeline/stage_workers.py", line 372, in stage_process_main
+    _run_process(spec, ready_event, log)
+  File "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/sglang_omni/pipeline/stage_workers.py", line 430, in _run_process
+    asyncio.run(_start_and_run())
+  File "/usr/lib/python3.12/asyncio/runners.py", line 194, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/runners.py", line 123, in run
+    raise KeyboardInterrupt()
+KeyboardInterrupt
+Process stage-thinker-tp1-follower:
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/sglang_omni/pipeline/stage_workers.py", line 420, in _start_and_run
+    await asyncio.gather(*tasks)
+asyncio.exceptions.CancelledError
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "/usr/lib/python3.12/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/sglang_omni/pipeline/stage_workers.py", line 372, in stage_process_main
+    _run_process(spec, ready_event, log)
+  File "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/sglang_omni/pipeline/stage_workers.py", line 430, in _run_process
+    asyncio.run(_start_and_run())
+  File "/usr/lib/python3.12/asyncio/runners.py", line 194, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/runners.py", line 123, in run
+    raise KeyboardInterrupt()
+KeyboardInterrupt
+Process stage-thinker-leader:
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/sglang_omni/pipeline/stage_workers.py", line 420, in _start_and_run
+    await asyncio.gather(*tasks)
+asyncio.exceptions.CancelledError
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "/usr/lib/python3.12/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/sglang_omni/pipeline/stage_workers.py", line 372, in stage_process_main
+    _run_process(spec, ready_event, log)
+  File "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/sglang_omni/pipeline/stage_workers.py", line 430, in _run_process
+    asyncio.run(_start_and_run())
+  File "/usr/lib/python3.12/asyncio/runners.py", line 194, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/runners.py", line 123, in run
+    raise KeyboardInterrupt()
+KeyboardInterrupt
+Process stage-preprocessing:
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/sglang_omni/pipeline/stage_workers.py", line 420, in _start_and_run
+    await asyncio.gather(*tasks)
+asyncio.exceptions.CancelledError
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "/usr/lib/python3.12/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/sglang_omni/pipeline/stage_workers.py", line 372, in stage_process_main
+    _run_process(spec, ready_event, log)
+  File "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/sglang_omni/pipeline/stage_workers.py", line 430, in _run_process
+    asyncio.run(_start_and_run())
+  File "/usr/lib/python3.12/asyncio/runners.py", line 194, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/runners.py", line 123, in run
+    raise KeyboardInterrupt()
+KeyboardInterrupt
+Process stage-mm_aggregate:
+Process stage-image_encoder:
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/sglang_omni/pipeline/stage_workers.py", line 420, in _start_and_run
+    await asyncio.gather(*tasks)
+asyncio.exceptions.CancelledError
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "/usr/lib/python3.12/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/sglang_omni/pipeline/stage_workers.py", line 372, in stage_process_main
+    _run_process(spec, ready_event, log)
+  File "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/sglang_omni/pipeline/stage_workers.py", line 430, in _run_process
+    asyncio.run(_start_and_run())
+  File "/usr/lib/python3.12/asyncio/runners.py", line 194, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/runners.py", line 123, in run
+    raise KeyboardInterrupt()
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+KeyboardInterrupt
+  File "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/sglang_omni/pipeline/stage_workers.py", line 420, in _start_and_run
+    await asyncio.gather(*tasks)
+asyncio.exceptions.CancelledError
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "/usr/lib/python3.12/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/sglang_omni/pipeline/stage_workers.py", line 372, in stage_process_main
+    _run_process(spec, ready_event, log)
+  File "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/sglang_omni/pipeline/stage_workers.py", line 430, in _run_process
+    asyncio.run(_start_and_run())
+  File "/usr/lib/python3.12/asyncio/runners.py", line 194, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/runners.py", line 123, in run
+    raise KeyboardInterrupt()
+KeyboardInterrupt
+INFO:     Shutting down
+Process stage-thinker-tp2-follower:
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/sglang_omni/pipeline/stage_workers.py", line 420, in _start_and_run
+    await asyncio.gather(*tasks)
+asyncio.exceptions.CancelledError
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "/usr/lib/python3.12/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/sglang_omni/pipeline/stage_workers.py", line 372, in stage_process_main
+    _run_process(spec, ready_event, log)
+  File "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/sglang_omni/pipeline/stage_workers.py", line 430, in _run_process
+    asyncio.run(_start_and_run())
+  File "/usr/lib/python3.12/asyncio/runners.py", line 194, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/runners.py", line 123, in run
+    raise KeyboardInterrupt()
+KeyboardInterrupt
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [3795952]
+2026-06-24 23:12:35,642 [INFO] sglang_omni.serve.launcher: Shutting down pipeline …
+2026-06-24 23:12:35,642 [INFO] sglang_omni.pipeline.coordinator: Sent shutdown to stage: preprocessing
+2026-06-24 23:12:35,642 [INFO] sglang_omni.pipeline.coordinator: Sent shutdown to stage: audio_encoder
+2026-06-24 23:12:35,643 [INFO] sglang_omni.pipeline.coordinator: Sent shutdown to stage: image_encoder
+2026-06-24 23:12:35,643 [INFO] sglang_omni.pipeline.coordinator: Sent shutdown to stage: mm_aggregate
+2026-06-24 23:12:35,643 [INFO] sglang_omni.pipeline.coordinator: Sent shutdown to stage: decode
+2026-06-24 23:12:35,643 [INFO] sglang_omni.pipeline.coordinator: Sent shutdown to stage: thinker
+[rank0]:[W624 23:12:36.530626036 ProcessGroupNCCL.cpp:1575] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+[rank0]:[W624 23:12:37.657138197 ProcessGroupNCCL.cpp:1575] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+[rank3]:[W624 23:12:37.705127789 ProcessGroupNCCL.cpp:1575] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+[rank1]:[W624 23:12:37.737587024 ProcessGroupNCCL.cpp:1575] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+[rank2]:[W624 23:12:37.909958949 ProcessGroupNCCL.cpp:1575] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+2026-06-24 23:12:38,736 [INFO] sglang_omni.pipeline.coordinator: Coordinator completion loop cancelled
+2026-06-24 23:12:38,736 [INFO] sglang_omni.pipeline.coordinator: Coordinator stopped
+2026-06-24 23:12:38,736 [INFO] sglang_omni.serve.launcher: Pipeline stopped.

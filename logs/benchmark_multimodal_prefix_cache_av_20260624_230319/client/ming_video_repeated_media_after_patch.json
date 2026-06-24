@@ -1,0 +1,187 @@
+{
+  "config": {
+    "alt_media": null,
+    "base_url": "http://127.0.0.1:8101",
+    "cold_concurrency": 4,
+    "markdown_output": "logs/benchmark_multimodal_prefix_cache_av_20260624_230319/client/ming_video_repeated_media_after_patch.md",
+    "max_tokens": 16,
+    "media": "tests/data/draw.mp4",
+    "media_kind": "video",
+    "model": "ming-omni",
+    "output": "logs/benchmark_multimodal_prefix_cache_av_20260624_230319/client/ming_video_repeated_media_after_patch.json",
+    "primary_media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/draw.mp4",
+    "prompt": "Describe this video in one short sentence.",
+    "repeats": 4,
+    "request_id_prefix": "ming-video-mmcache-20260624-2312-after-patch",
+    "response_chars": 240,
+    "seed": 1234,
+    "stream": true,
+    "temperature": 0.0,
+    "timeout_s": 300.0,
+    "video_fps": 1.0,
+    "video_max_frames": 8,
+    "video_max_pixels": 200704
+  },
+  "requests": [
+    {
+      "completion_tokens": 15,
+      "error": null,
+      "first_delta_seconds": 5.271730688400567,
+      "first_event_seconds": 5.271730688400567,
+      "index": 0,
+      "latency_seconds": 6.799443925730884,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/draw.mp4",
+      "ok": true,
+      "phase": "cold_concurrent_same_media",
+      "prompt_tokens": 1290,
+      "request_id": "ming-video-mmcache-20260624-2312-after-patch-cold_concurrent_same_media-0",
+      "response_text": "A person is drawing a guitar on a tablet using a stylus.",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": 15,
+      "error": null,
+      "first_delta_seconds": 7.655214184895158,
+      "first_event_seconds": 7.655214184895158,
+      "index": 1,
+      "latency_seconds": 7.775479678064585,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/draw.mp4",
+      "ok": true,
+      "phase": "cold_concurrent_same_media",
+      "prompt_tokens": 1290,
+      "request_id": "ming-video-mmcache-20260624-2312-after-patch-cold_concurrent_same_media-1",
+      "response_text": "A person is drawing a guitar on a tablet using a stylus.",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": 15,
+      "error": null,
+      "first_delta_seconds": 5.96140268817544,
+      "first_event_seconds": 5.96140268817544,
+      "index": 2,
+      "latency_seconds": 6.809687904082239,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/draw.mp4",
+      "ok": true,
+      "phase": "cold_concurrent_same_media",
+      "prompt_tokens": 1290,
+      "request_id": "ming-video-mmcache-20260624-2312-after-patch-cold_concurrent_same_media-2",
+      "response_text": "A person is drawing a guitar on a tablet using a stylus.",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": 15,
+      "error": null,
+      "first_delta_seconds": 6.33139871712774,
+      "first_event_seconds": 6.33139871712774,
+      "index": 3,
+      "latency_seconds": 6.822309012524784,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/draw.mp4",
+      "ok": true,
+      "phase": "cold_concurrent_same_media",
+      "prompt_tokens": 1290,
+      "request_id": "ming-video-mmcache-20260624-2312-after-patch-cold_concurrent_same_media-3",
+      "response_text": "A person is drawing a guitar on a tablet using a stylus.",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": 15,
+      "error": null,
+      "first_delta_seconds": 2.084982334636152,
+      "first_event_seconds": 2.084982334636152,
+      "index": 0,
+      "latency_seconds": 2.1983596310019493,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/draw.mp4",
+      "ok": true,
+      "phase": "warm_sequential_same_media",
+      "prompt_tokens": 1290,
+      "request_id": "ming-video-mmcache-20260624-2312-after-patch-warm_sequential_same_media-0",
+      "response_text": "A person is drawing a guitar on a tablet using a stylus.",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": 15,
+      "error": null,
+      "first_delta_seconds": 2.0260185906663537,
+      "first_event_seconds": 2.0260185906663537,
+      "index": 1,
+      "latency_seconds": 2.1391672575846314,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/draw.mp4",
+      "ok": true,
+      "phase": "warm_sequential_same_media",
+      "prompt_tokens": 1290,
+      "request_id": "ming-video-mmcache-20260624-2312-after-patch-warm_sequential_same_media-1",
+      "response_text": "A person is drawing a guitar on a tablet using a stylus.",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": 15,
+      "error": null,
+      "first_delta_seconds": 2.0625553131103516,
+      "first_event_seconds": 2.0625553131103516,
+      "index": 2,
+      "latency_seconds": 2.174741148017347,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/draw.mp4",
+      "ok": true,
+      "phase": "warm_sequential_same_media",
+      "prompt_tokens": 1290,
+      "request_id": "ming-video-mmcache-20260624-2312-after-patch-warm_sequential_same_media-2",
+      "response_text": "A person is drawing a guitar on a tablet using a stylus.",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": 15,
+      "error": null,
+      "first_delta_seconds": 1.988479608669877,
+      "first_event_seconds": 1.988479608669877,
+      "index": 3,
+      "latency_seconds": 2.101950260810554,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/draw.mp4",
+      "ok": true,
+      "phase": "warm_sequential_same_media",
+      "prompt_tokens": 1290,
+      "request_id": "ming-video-mmcache-20260624-2312-after-patch-warm_sequential_same_media-3",
+      "response_text": "A person is drawing a guitar on a tablet using a stylus.",
+      "status_code": 200
+    }
+  ],
+  "summary": {
+    "cold_concurrent_same_media": {
+      "failed": 0,
+      "first_delta_seconds": {
+        "max": 7.655214184895158,
+        "mean": 6.304936569649726,
+        "min": 5.271730688400567,
+        "p50": 6.14640070265159,
+        "p95": 7.456641864730044
+      },
+      "latency_seconds": {
+        "max": 7.775479678064585,
+        "mean": 7.051730130100623,
+        "min": 6.799443925730884,
+        "p50": 6.815998458303511,
+        "p95": 7.632504078233614
+      },
+      "requests": 4,
+      "successful": 4
+    },
+    "warm_sequential_same_media": {
+      "failed": 0,
+      "first_delta_seconds": {
+        "max": 2.084982334636152,
+        "mean": 2.0405089617706835,
+        "min": 1.988479608669877,
+        "p50": 2.0442869518883526,
+        "p95": 2.0816182814072817
+      },
+      "latency_seconds": {
+        "max": 2.1983596310019493,
+        "mean": 2.1535545743536204,
+        "min": 2.101950260810554,
+        "p50": 2.156954202800989,
+        "p95": 2.1948168585542587
+      },
+      "requests": 4,
+      "successful": 4
+    }
+  }
+}

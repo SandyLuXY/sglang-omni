@@ -305,13 +305,46 @@ class MingPreprocessor:
             if arr.ndim == 4 and arr.shape[1] in (1, 3):
                 arr = np.transpose(arr, (0, 2, 3, 1))
             np_videos.append(arr)
-        # ``processor.__call__`` requires ``images`` as a positional argument;
-        # call ``preprocess`` directly so we can pass only ``videos``.
-        result = processor.preprocess(
-            images=None, videos=np_videos, return_tensors="pt"
-        )
-        pixel_values_videos = result["pixel_values_videos"]
-        video_grid_thw = result["video_grid_thw"]
+        try:
+            result = processor.preprocess(
+                images=None, videos=np_videos, return_tensors="pt"
+            )
+            pixel_values_videos = result["pixel_values_videos"]
+            video_grid_thw = result["video_grid_thw"]
+        except TypeError as exc:
+            if "unexpected keyword argument 'videos'" not in str(exc):
+                raise
+            flat_frames = [frame for video in np_videos for frame in video]
+            result = processor.preprocess(images=flat_frames, return_tensors="pt")
+            pixel_values_videos = result["pixel_values"]
+            frame_grid_thw = result["image_grid_thw"].to(dtype=torch.long)
+            rows: list[torch.Tensor] = []
+            offset = 0
+            for video in np_videos:
+                num_frames = int(video.shape[0])
+                frame_rows = frame_grid_thw[offset : offset + num_frames]
+                offset += num_frames
+                if frame_rows.numel() == 0:
+                    continue
+                hw = frame_rows[:, 1:]
+                if not torch.equal(hw, hw[0].expand_as(hw)):
+                    raise ValueError(
+                        "Ming video processor produced variable frame grids "
+                        "within a single video."
+                    )
+                rows.append(
+                    torch.tensor(
+                        [
+                            int(frame_rows[:, 0].sum().item()),
+                            int(hw[0, 0].item()),
+                            int(hw[0, 1].item()),
+                        ],
+                        dtype=frame_grid_thw.dtype,
+                    )
+                )
+            if not rows:
+                raise ValueError("Ming video processor produced no video frames.")
+            video_grid_thw = torch.stack(rows, dim=0)
         token_counts = _estimate_image_tokens(
             video_grid_thw.tolist(),
             self._vision_config.spatial_merge_size,

@@ -1,0 +1,221 @@
+{
+  "config": {
+    "alt_media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/query_to_cars.wav",
+    "base_url": "http://127.0.0.1:8100",
+    "cold_concurrency": 4,
+    "markdown_output": "logs/benchmark_multimodal_prefix_cache_av_20260624_230319/client/qwen_audio_repeated_media.md",
+    "max_tokens": 16,
+    "media": "tests/data/query_to_draw.wav",
+    "media_kind": "audio",
+    "model": "qwen3-omni",
+    "output": "logs/benchmark_multimodal_prefix_cache_av_20260624_230319/client/qwen_audio_repeated_media.json",
+    "primary_media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/query_to_draw.wav",
+    "prompt": "What is said in the audio? Answer briefly.",
+    "repeats": 4,
+    "request_id_prefix": "qwen-audio-mmcache-20260624-230319",
+    "response_chars": 240,
+    "seed": 1234,
+    "stream": true,
+    "temperature": 0.0,
+    "timeout_s": 300.0,
+    "video_fps": null,
+    "video_max_frames": null,
+    "video_max_pixels": null
+  },
+  "requests": [
+    {
+      "completion_tokens": 11,
+      "error": null,
+      "first_delta_seconds": 1.2870211228728294,
+      "first_event_seconds": 1.2870211228728294,
+      "index": 0,
+      "latency_seconds": 1.3750844802707434,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/query_to_draw.wav",
+      "ok": true,
+      "phase": "cold_concurrent_same_media",
+      "prompt_tokens": 86,
+      "request_id": "qwen-audio-mmcache-20260624-230319-cold_concurrent_same_media-0",
+      "response_text": "A woman asks what is happening in a video.",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": 11,
+      "error": null,
+      "first_delta_seconds": 1.246870449744165,
+      "first_event_seconds": 1.246870449744165,
+      "index": 1,
+      "latency_seconds": 1.3690252378582954,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/query_to_draw.wav",
+      "ok": true,
+      "phase": "cold_concurrent_same_media",
+      "prompt_tokens": 86,
+      "request_id": "qwen-audio-mmcache-20260624-230319-cold_concurrent_same_media-1",
+      "response_text": "A woman asks what is happening in a video.",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": 11,
+      "error": null,
+      "first_delta_seconds": 1.28653247281909,
+      "first_event_seconds": 1.28653247281909,
+      "index": 2,
+      "latency_seconds": 1.3747025895863771,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/query_to_draw.wav",
+      "ok": true,
+      "phase": "cold_concurrent_same_media",
+      "prompt_tokens": 86,
+      "request_id": "qwen-audio-mmcache-20260624-230319-cold_concurrent_same_media-2",
+      "response_text": "A woman asks what is happening in a video.",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": 11,
+      "error": null,
+      "first_delta_seconds": 1.246142853051424,
+      "first_event_seconds": 1.246142853051424,
+      "index": 3,
+      "latency_seconds": 1.368036599829793,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/query_to_draw.wav",
+      "ok": true,
+      "phase": "cold_concurrent_same_media",
+      "prompt_tokens": 86,
+      "request_id": "qwen-audio-mmcache-20260624-230319-cold_concurrent_same_media-3",
+      "response_text": "A woman asks what is happening in a video.",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": 10,
+      "error": null,
+      "first_delta_seconds": 0.5923238834366202,
+      "first_event_seconds": 0.5923238834366202,
+      "index": 0,
+      "latency_seconds": 0.6370061663910747,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/query_to_cars.wav",
+      "ok": true,
+      "phase": "single_different_media",
+      "prompt_tokens": 80,
+      "request_id": "qwen-audio-mmcache-20260624-230319-single_different_media-0",
+      "response_text": "How many cars are there in the picture?",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": 11,
+      "error": null,
+      "first_delta_seconds": 0.37679341342300177,
+      "first_event_seconds": 0.37679341342300177,
+      "index": 0,
+      "latency_seconds": 0.43164392840117216,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/query_to_draw.wav",
+      "ok": true,
+      "phase": "warm_sequential_same_media",
+      "prompt_tokens": 86,
+      "request_id": "qwen-audio-mmcache-20260624-230319-warm_sequential_same_media-0",
+      "response_text": "A woman asks what is happening in a video.",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": 11,
+      "error": null,
+      "first_delta_seconds": 0.11318140104413033,
+      "first_event_seconds": 0.11318140104413033,
+      "index": 1,
+      "latency_seconds": 0.1631112853065133,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/query_to_draw.wav",
+      "ok": true,
+      "phase": "warm_sequential_same_media",
+      "prompt_tokens": 86,
+      "request_id": "qwen-audio-mmcache-20260624-230319-warm_sequential_same_media-1",
+      "response_text": "A woman asks what is happening in a video.",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": 11,
+      "error": null,
+      "first_delta_seconds": 0.11052758246660233,
+      "first_event_seconds": 0.11052758246660233,
+      "index": 2,
+      "latency_seconds": 0.16083486191928387,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/query_to_draw.wav",
+      "ok": true,
+      "phase": "warm_sequential_same_media",
+      "prompt_tokens": 86,
+      "request_id": "qwen-audio-mmcache-20260624-230319-warm_sequential_same_media-2",
+      "response_text": "A woman asks what is happening in a video.",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": 11,
+      "error": null,
+      "first_delta_seconds": 0.10923850070685148,
+      "first_event_seconds": 0.10923850070685148,
+      "index": 3,
+      "latency_seconds": 0.15862969029694796,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/query_to_draw.wav",
+      "ok": true,
+      "phase": "warm_sequential_same_media",
+      "prompt_tokens": 86,
+      "request_id": "qwen-audio-mmcache-20260624-230319-warm_sequential_same_media-3",
+      "response_text": "A woman asks what is happening in a video.",
+      "status_code": 200
+    }
+  ],
+  "summary": {
+    "cold_concurrent_same_media": {
+      "failed": 0,
+      "first_delta_seconds": {
+        "max": 1.2870211228728294,
+        "mean": 1.266641724621877,
+        "min": 1.246142853051424,
+        "p50": 1.2667014612816274,
+        "p95": 1.2869478253647686
+      },
+      "latency_seconds": {
+        "max": 1.3750844802707434,
+        "mean": 1.3717122268863022,
+        "min": 1.368036599829793,
+        "p50": 1.3718639137223363,
+        "p95": 1.3750271966680885
+      },
+      "requests": 4,
+      "successful": 4
+    },
+    "single_different_media": {
+      "failed": 0,
+      "first_delta_seconds": {
+        "max": 0.5923238834366202,
+        "mean": 0.5923238834366202,
+        "min": 0.5923238834366202,
+        "p50": 0.5923238834366202,
+        "p95": 0.5923238834366202
+      },
+      "latency_seconds": {
+        "max": 0.6370061663910747,
+        "mean": 0.6370061663910747,
+        "min": 0.6370061663910747,
+        "p50": 0.6370061663910747,
+        "p95": 0.6370061663910747
+      },
+      "requests": 1,
+      "successful": 1
+    },
+    "warm_sequential_same_media": {
+      "failed": 0,
+      "first_delta_seconds": {
+        "max": 0.37679341342300177,
+        "mean": 0.17743522441014647,
+        "min": 0.10923850070685148,
+        "p50": 0.11185449175536633,
+        "p95": 0.33725161156617095
+      },
+      "latency_seconds": {
+        "max": 0.43164392840117216,
+        "mean": 0.22855494148097932,
+        "min": 0.15862969029694796,
+        "p50": 0.1619730736128986,
+        "p95": 0.3913640319369733
+      },
+      "requests": 4,
+      "successful": 4
+    }
+  }
+}

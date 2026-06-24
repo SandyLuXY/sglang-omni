@@ -850,6 +850,49 @@ def test_compute_video_cache_key_changes_with_decode_params() -> None:
     assert compute_video_cache_key([], fps=8.0) is None
 
 
+def test_ming_video_preprocessor_falls_back_to_frame_image_processor() -> None:
+    import types
+
+    import torch
+
+    from sglang_omni.models.ming_omni.components.preprocessor import MingPreprocessor
+
+    class FrameOnlyProcessor:
+        def preprocess(self, images=None, videos=None, return_tensors=None):
+            assert return_tensors == "pt"
+            if videos is not None:
+                raise TypeError(
+                    "Qwen2VLImageProcessorKwargs.__init__() got an unexpected "
+                    "keyword argument 'videos'"
+                )
+            assert images is not None and len(images) == 3
+            return {
+                "pixel_values": torch.zeros((48, 1176), dtype=torch.float32),
+                "image_grid_thw": torch.tensor(
+                    [[1, 4, 4], [1, 4, 4], [1, 6, 6]], dtype=torch.long
+                ),
+            }
+
+    preprocessor = object.__new__(MingPreprocessor)
+    preprocessor.__dict__["_vision_config"] = types.SimpleNamespace(
+        spatial_merge_size=2
+    )
+    preprocessor.__dict__["_get_image_processor"] = lambda: FrameOnlyProcessor()
+
+    videos = [
+        torch.zeros((2, 3, 64, 64), dtype=torch.float32),
+        torch.zeros((1, 3, 96, 96), dtype=torch.float32),
+    ]
+
+    pixel_values, video_grid_thw, token_counts = MingPreprocessor._process_videos(
+        preprocessor, videos
+    )
+
+    assert tuple(pixel_values.shape) == (48, 1176)
+    assert video_grid_thw.tolist() == [[2, 4, 4], [1, 6, 6]]
+    assert token_counts == [8, 9]
+
+
 def _make_fake_ming_image_encoder(spatial_merge_size: int = 2):
     """Build a MingImageEncoder shell whose ``_encode`` returns synthetic
     tensors with the real shape contract (embeds rows == sum(token_counts)).

@@ -1,0 +1,25 @@
+Current branch feat/omni-multimodal-prefix-cache is up to date.
+Everything up-to-date
+[/data/sglang-omni]$ git fetch --prune origin
+[/data/sglang-omni]$ git fetch --prune upstream
+main matches upstream/main at 1ad75cc1
+feature worktree has 2 untracked paths; leaving them untouched.
+untracked logs paths: 2
+
+feature commits before rebase: git log --oneline upstream/main..HEAD
+a2cb475c Add multimodal repeated-media serving benchmark
+c879d561 Add multimodal prefix cache feasibility probe
+auto-confirmed: Rebase feat/omni-multimodal-prefix-cache in /data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache onto upstream/main?
+[/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache]$ git rebase upstream/main
+
+feature commits after rebase; this should contain only feature work: git log --oneline upstream/main..HEAD
+a2cb475c Add multimodal repeated-media serving benchmark
+c879d561 Add multimodal prefix cache feasibility probe
+
+commits to push to origin/feat/omni-multimodal-prefix-cache: git log --oneline origin/feat/omni-multimodal-prefix-cache..HEAD
+(none)
+
+remote commits not in local feat/omni-multimodal-prefix-cache: git log --oneline HEAD..origin/feat/omni-multimodal-prefix-cache
+(none)
+auto-confirmed: Push feat/omni-multimodal-prefix-cache to origin/feat/omni-multimodal-prefix-cache with --force-with-lease?
+[/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache]$ git push --force-with-lease origin HEAD:feat/omni-multimodal-prefix-cache

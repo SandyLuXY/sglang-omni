@@ -1,0 +1,187 @@
+{
+  "config": {
+    "alt_media": null,
+    "base_url": "http://127.0.0.1:8101",
+    "cold_concurrency": 4,
+    "markdown_output": "logs/benchmark_multimodal_prefix_cache_av_20260624_230319/client/ming_video_repeated_media.md",
+    "max_tokens": 16,
+    "media": "tests/data/draw.mp4",
+    "media_kind": "video",
+    "model": "ming-omni",
+    "output": "logs/benchmark_multimodal_prefix_cache_av_20260624_230319/client/ming_video_repeated_media.json",
+    "primary_media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/draw.mp4",
+    "prompt": "Describe this video in one short sentence.",
+    "repeats": 4,
+    "request_id_prefix": "ming-video-mmcache-20260624-230319",
+    "response_chars": 240,
+    "seed": 1234,
+    "stream": true,
+    "temperature": 0.0,
+    "timeout_s": 300.0,
+    "video_fps": 1.0,
+    "video_max_frames": 8,
+    "video_max_pixels": 200704
+  },
+  "requests": [
+    {
+      "completion_tokens": null,
+      "error": "peer closed connection without sending complete message body (incomplete chunked read)",
+      "first_delta_seconds": null,
+      "first_event_seconds": null,
+      "index": 0,
+      "latency_seconds": 5.853083888068795,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/draw.mp4",
+      "ok": false,
+      "phase": "cold_concurrent_same_media",
+      "prompt_tokens": null,
+      "request_id": "ming-video-mmcache-20260624-230319-cold_concurrent_same_media-0",
+      "response_text": "",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": null,
+      "error": "peer closed connection without sending complete message body (incomplete chunked read)",
+      "first_delta_seconds": null,
+      "first_event_seconds": null,
+      "index": 1,
+      "latency_seconds": 4.235278110951185,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/draw.mp4",
+      "ok": false,
+      "phase": "cold_concurrent_same_media",
+      "prompt_tokens": null,
+      "request_id": "ming-video-mmcache-20260624-230319-cold_concurrent_same_media-1",
+      "response_text": "",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": null,
+      "error": "peer closed connection without sending complete message body (incomplete chunked read)",
+      "first_delta_seconds": null,
+      "first_event_seconds": null,
+      "index": 2,
+      "latency_seconds": 2.791648818179965,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/draw.mp4",
+      "ok": false,
+      "phase": "cold_concurrent_same_media",
+      "prompt_tokens": null,
+      "request_id": "ming-video-mmcache-20260624-230319-cold_concurrent_same_media-2",
+      "response_text": "",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": null,
+      "error": "peer closed connection without sending complete message body (incomplete chunked read)",
+      "first_delta_seconds": null,
+      "first_event_seconds": null,
+      "index": 3,
+      "latency_seconds": 7.440474611707032,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/draw.mp4",
+      "ok": false,
+      "phase": "cold_concurrent_same_media",
+      "prompt_tokens": null,
+      "request_id": "ming-video-mmcache-20260624-230319-cold_concurrent_same_media-3",
+      "response_text": "",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": null,
+      "error": "peer closed connection without sending complete message body (incomplete chunked read)",
+      "first_delta_seconds": null,
+      "first_event_seconds": null,
+      "index": 0,
+      "latency_seconds": 1.4687709184363484,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/draw.mp4",
+      "ok": false,
+      "phase": "warm_sequential_same_media",
+      "prompt_tokens": null,
+      "request_id": "ming-video-mmcache-20260624-230319-warm_sequential_same_media-0",
+      "response_text": "",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": null,
+      "error": "peer closed connection without sending complete message body (incomplete chunked read)",
+      "first_delta_seconds": null,
+      "first_event_seconds": null,
+      "index": 1,
+      "latency_seconds": 1.5968216368928552,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/draw.mp4",
+      "ok": false,
+      "phase": "warm_sequential_same_media",
+      "prompt_tokens": null,
+      "request_id": "ming-video-mmcache-20260624-230319-warm_sequential_same_media-1",
+      "response_text": "",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": null,
+      "error": "peer closed connection without sending complete message body (incomplete chunked read)",
+      "first_delta_seconds": null,
+      "first_event_seconds": null,
+      "index": 2,
+      "latency_seconds": 1.581880433484912,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/draw.mp4",
+      "ok": false,
+      "phase": "warm_sequential_same_media",
+      "prompt_tokens": null,
+      "request_id": "ming-video-mmcache-20260624-230319-warm_sequential_same_media-2",
+      "response_text": "",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": null,
+      "error": "peer closed connection without sending complete message body (incomplete chunked read)",
+      "first_delta_seconds": null,
+      "first_event_seconds": null,
+      "index": 3,
+      "latency_seconds": 1.4359582951292396,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/draw.mp4",
+      "ok": false,
+      "phase": "warm_sequential_same_media",
+      "prompt_tokens": null,
+      "request_id": "ming-video-mmcache-20260624-230319-warm_sequential_same_media-3",
+      "response_text": "",
+      "status_code": 200
+    }
+  ],
+  "summary": {
+    "cold_concurrent_same_media": {
+      "failed": 4,
+      "first_delta_seconds": {
+        "max": null,
+        "mean": null,
+        "min": null,
+        "p50": null,
+        "p95": null
+      },
+      "latency_seconds": {
+        "max": null,
+        "mean": null,
+        "min": null,
+        "p50": null,
+        "p95": null
+      },
+      "requests": 4,
+      "successful": 0
+    },
+    "warm_sequential_same_media": {
+      "failed": 4,
+      "first_delta_seconds": {
+        "max": null,
+        "mean": null,
+        "min": null,
+        "p50": null,
+        "p95": null
+      },
+      "latency_seconds": {
+        "max": null,
+        "mean": null,
+        "min": null,
+        "p50": null,
+        "p95": null
+      },
+      "requests": 4,
+      "successful": 0
+    }
+  }
+}

@@ -1,0 +1,1 @@
+{"status":"healthy","running":true,"stages":["preprocessing","audio_encoder","image_encoder","mm_aggregate","decode","thinker"],"entry_stage":"preprocessing","total_requests":0,"pending_completions":0,"request_states":{}}
