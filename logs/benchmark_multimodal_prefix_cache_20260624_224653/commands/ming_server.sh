@@ -1,0 +1,1 @@
+CUDA_VISIBLE_DEVICES=2,3,4,5 /data/.venv/bin/python -m sglang_omni.cli serve --model-path inclusionAI/Ming-flash-omni-2.0 --model-name ming-omni --text-only --host 127.0.0.1 --port 8101 --thinker-tp-size 4 --thinker-gpus 0,1,2,3 --mem-fraction-static 0.80

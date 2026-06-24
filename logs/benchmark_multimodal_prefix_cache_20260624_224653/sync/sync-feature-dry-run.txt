@@ -1,0 +1,23 @@
+DRY-RUN [/data/sglang-omni]$ git fetch --prune origin
+DRY-RUN [/data/sglang-omni]$ git fetch --prune upstream
+
+commits missing from local main: git log --oneline HEAD..upstream/main
+1ad75cc1 [CI] Expand Stage 1 to cover full set of Seed TTS on ASR (#880)
+
+local main commits not in upstream/main: git log --oneline upstream/main..HEAD
+(none)
+Fast-forward /data/sglang-omni main to upstream/main?
+Type 'yes' to continue: Traceback (most recent call last):
+  File "/root/.local/bin/sglang-omni-sync", line 292, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/root/.local/bin/sglang-omni-sync", line 284, in main
+    sync_feature(args)
+  File "/root/.local/bin/sglang-omni-sync", line 212, in sync_feature
+    ensure_main_on_upstream(main_repo, args)
+  File "/root/.local/bin/sglang-omni-sync", line 129, in ensure_main_on_upstream
+    confirm(args, f"Fast-forward {main_repo} main to {BASE_REF}?")
+  File "/root/.local/bin/sglang-omni-sync", line 47, in confirm
+    answer = input(f"{message}\nType 'yes' to continue: ").strip()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+EOFError: EOF when reading a line

@@ -1,0 +1,221 @@
+{
+  "config": {
+    "alt_media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/cars.jpg",
+    "base_url": "http://127.0.0.1:8101",
+    "cold_concurrency": 4,
+    "markdown_output": "logs/benchmark_multimodal_prefix_cache_20260624_224653/client/ming_repeated_media.md",
+    "max_tokens": 16,
+    "media": "docs/_static/image/llada2.0_uni_architecture.png",
+    "media_kind": "image",
+    "model": "ming-omni",
+    "output": "logs/benchmark_multimodal_prefix_cache_20260624_224653/client/ming_repeated_media.json",
+    "primary_media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/docs/_static/image/llada2.0_uni_architecture.png",
+    "prompt": "Describe this image in one short sentence.",
+    "repeats": 4,
+    "request_id_prefix": "ming-mmcache-20260624-224653",
+    "response_chars": 240,
+    "seed": 1234,
+    "stream": true,
+    "temperature": 0.0,
+    "timeout_s": 300.0,
+    "video_fps": null,
+    "video_max_frames": null,
+    "video_max_pixels": null
+  },
+  "requests": [
+    {
+      "completion_tokens": 16,
+      "error": null,
+      "first_delta_seconds": 5.2375639118254185,
+      "first_event_seconds": 5.2375639118254185,
+      "index": 0,
+      "latency_seconds": 5.721425015479326,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/docs/_static/image/llada2.0_uni_architecture.png",
+      "ok": true,
+      "phase": "cold_concurrent_same_media",
+      "prompt_tokens": 986,
+      "request_id": "ming-mmcache-20260624-224653-cold_concurrent_same_media-0",
+      "response_text": "The image depicts a diagram of a multimodal AI model, specifically LLaDA",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": 16,
+      "error": null,
+      "first_delta_seconds": 4.082257996313274,
+      "first_event_seconds": 4.082257996313274,
+      "index": 1,
+      "latency_seconds": 5.695786531083286,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/docs/_static/image/llada2.0_uni_architecture.png",
+      "ok": true,
+      "phase": "cold_concurrent_same_media",
+      "prompt_tokens": 986,
+      "request_id": "ming-mmcache-20260624-224653-cold_concurrent_same_media-1",
+      "response_text": "The image showcases a multimodal AI model, LLaDA 2.0",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": 16,
+      "error": null,
+      "first_delta_seconds": 5.236619220115244,
+      "first_event_seconds": 5.236619220115244,
+      "index": 2,
+      "latency_seconds": 5.710196926258504,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/docs/_static/image/llada2.0_uni_architecture.png",
+      "ok": true,
+      "phase": "cold_concurrent_same_media",
+      "prompt_tokens": 986,
+      "request_id": "ming-mmcache-20260624-224653-cold_concurrent_same_media-2",
+      "response_text": "The image showcases a multimodal AI model, LLaDA 2.0",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": 16,
+      "error": null,
+      "first_delta_seconds": 5.235830135643482,
+      "first_event_seconds": 5.235830135643482,
+      "index": 3,
+      "latency_seconds": 5.6989701529964805,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/docs/_static/image/llada2.0_uni_architecture.png",
+      "ok": true,
+      "phase": "cold_concurrent_same_media",
+      "prompt_tokens": 986,
+      "request_id": "ming-mmcache-20260624-224653-cold_concurrent_same_media-3",
+      "response_text": "The image depicts a diagram of a multimodal AI model, specifically LLaDA",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": 16,
+      "error": null,
+      "first_delta_seconds": 0.7670313250273466,
+      "first_event_seconds": 0.7670313250273466,
+      "index": 0,
+      "latency_seconds": 0.8826887290924788,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/cars.jpg",
+      "ok": true,
+      "phase": "single_different_media",
+      "prompt_tokens": 960,
+      "request_id": "ming-mmcache-20260624-224653-single_different_media-0",
+      "response_text": "The image showcases a variety of luxury cars, including a white Rolls-Royce",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": 16,
+      "error": null,
+      "first_delta_seconds": 0.5491003291681409,
+      "first_event_seconds": 0.5491003291681409,
+      "index": 0,
+      "latency_seconds": 0.6681548003107309,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/docs/_static/image/llada2.0_uni_architecture.png",
+      "ok": true,
+      "phase": "warm_sequential_same_media",
+      "prompt_tokens": 986,
+      "request_id": "ming-mmcache-20260624-224653-warm_sequential_same_media-0",
+      "response_text": "The image showcases a multimodal AI model, LLaDA 2.0",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": 16,
+      "error": null,
+      "first_delta_seconds": 0.49862911365926266,
+      "first_event_seconds": 0.49862911365926266,
+      "index": 1,
+      "latency_seconds": 0.6136027816683054,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/docs/_static/image/llada2.0_uni_architecture.png",
+      "ok": true,
+      "phase": "warm_sequential_same_media",
+      "prompt_tokens": 986,
+      "request_id": "ming-mmcache-20260624-224653-warm_sequential_same_media-1",
+      "response_text": "The image showcases a multimodal AI model, LLaDA 2.0",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": 16,
+      "error": null,
+      "first_delta_seconds": 0.4610202172771096,
+      "first_event_seconds": 0.4610202172771096,
+      "index": 2,
+      "latency_seconds": 0.5756162498146296,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/docs/_static/image/llada2.0_uni_architecture.png",
+      "ok": true,
+      "phase": "warm_sequential_same_media",
+      "prompt_tokens": 986,
+      "request_id": "ming-mmcache-20260624-224653-warm_sequential_same_media-2",
+      "response_text": "The image showcases a multimodal AI model, LLaDA 2.0",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": 16,
+      "error": null,
+      "first_delta_seconds": 0.4755765236914158,
+      "first_event_seconds": 0.4755765236914158,
+      "index": 3,
+      "latency_seconds": 0.5888024847954512,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/docs/_static/image/llada2.0_uni_architecture.png",
+      "ok": true,
+      "phase": "warm_sequential_same_media",
+      "prompt_tokens": 986,
+      "request_id": "ming-mmcache-20260624-224653-warm_sequential_same_media-3",
+      "response_text": "The image showcases a multimodal AI model, LLaDA 2.0",
+      "status_code": 200
+    }
+  ],
+  "summary": {
+    "cold_concurrent_same_media": {
+      "failed": 0,
+      "first_delta_seconds": {
+        "max": 5.2375639118254185,
+        "mean": 4.948067815974355,
+        "min": 4.082257996313274,
+        "p50": 5.236224677879363,
+        "p95": 5.237422208068892
+      },
+      "latency_seconds": {
+        "max": 5.721425015479326,
+        "mean": 5.706594656454399,
+        "min": 5.695786531083286,
+        "p50": 5.704583539627492,
+        "p95": 5.719740802096203
+      },
+      "requests": 4,
+      "successful": 4
+    },
+    "single_different_media": {
+      "failed": 0,
+      "first_delta_seconds": {
+        "max": 0.7670313250273466,
+        "mean": 0.7670313250273466,
+        "min": 0.7670313250273466,
+        "p50": 0.7670313250273466,
+        "p95": 0.7670313250273466
+      },
+      "latency_seconds": {
+        "max": 0.8826887290924788,
+        "mean": 0.8826887290924788,
+        "min": 0.8826887290924788,
+        "p50": 0.8826887290924788,
+        "p95": 0.8826887290924788
+      },
+      "requests": 1,
+      "successful": 1
+    },
+    "warm_sequential_same_media": {
+      "failed": 0,
+      "first_delta_seconds": {
+        "max": 0.5491003291681409,
+        "mean": 0.49608154594898224,
+        "min": 0.4610202172771096,
+        "p50": 0.4871028186753392,
+        "p95": 0.5415296468418092
+      },
+      "latency_seconds": {
+        "max": 0.6681548003107309,
+        "mean": 0.6115440791472793,
+        "min": 0.5756162498146296,
+        "p50": 0.6012026332318783,
+        "p95": 0.6599719975143671
+      },
+      "requests": 4,
+      "successful": 4
+    }
+  }
+}

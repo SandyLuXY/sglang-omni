@@ -1,0 +1,35 @@
+## main...origin/main
+## feat/moss-tts-local-profiling
+ M sglang_omni/models/moss_tts_local/stages.py
+ M tests/unit_test/moss_tts_local/test_pipeline.py
+?? logs/
+## feat/moss-tts-local-ref-audio-encoder-fa
+?? logs/
+## feat/moss-tts-local-ref-audio-encoder-opt...origin/feat/moss-tts-local-ref-audio-encoder-opt
+?? logs/
+## feat/omni-multimodal-prefix-cache...origin/feat/omni-multimodal-prefix-cache
+?? logs/benchmark_multimodal_prefix_cache_20260624_224653/
+main repo: /data/sglang-omni
+[/data/sglang-omni]$ git status --short --branch
+
+worktrees:
+/data/sglang-omni                                                      86e73bdb [main]
+/data/sglang-omni-worktrees/feat-moss-tts-local-profiling              86e73bdb [feat/moss-tts-local-profiling]
+/data/sglang-omni-worktrees/feat-moss-tts-local-ref-audio-encoder-fa   7c5283e0 [feat/moss-tts-local-ref-audio-encoder-fa]
+/data/sglang-omni-worktrees/feat-moss-tts-local-ref-audio-encoder-opt  86e73bdb [feat/moss-tts-local-ref-audio-encoder-opt]
+/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache          8561ab7f [feat/omni-multimodal-prefix-cache]
+/tmp/pr850                                                             06b800c8 (detached HEAD)
+/tmp/sglang-omni-pr850                                                 06b800c8 (detached HEAD)
+/tmp/sglang-omni-pr874                                                 8d325bfd (detached HEAD)
+
+/data/sglang-omni-worktrees/feat-moss-tts-local-profiling
+[/data/sglang-omni-worktrees/feat-moss-tts-local-profiling]$ git status --short --branch
+
+/data/sglang-omni-worktrees/feat-moss-tts-local-ref-audio-encoder-fa
+[/data/sglang-omni-worktrees/feat-moss-tts-local-ref-audio-encoder-fa]$ git status --short --branch
+
+/data/sglang-omni-worktrees/feat-moss-tts-local-ref-audio-encoder-opt
+[/data/sglang-omni-worktrees/feat-moss-tts-local-ref-audio-encoder-opt]$ git status --short --branch
+
+/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache
+[/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache]$ git status --short --branch

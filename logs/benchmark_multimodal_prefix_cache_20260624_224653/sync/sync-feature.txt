@@ -1,0 +1,26 @@
+Rebasing (1/1)[KSuccessfully rebased and updated refs/heads/feat/omni-multimodal-prefix-cache.
+To https://github.com/SandyLuXY/sglang-omni.git
+ + 8561ab7f...c879d561 HEAD -> feat/omni-multimodal-prefix-cache (forced update)
+[/data/sglang-omni]$ git fetch --prune origin
+[/data/sglang-omni]$ git fetch --prune upstream
+main matches upstream/main at 1ad75cc1
+feature worktree has 2 untracked paths; leaving them untouched.
+untracked logs paths: 2
+
+feature commits before rebase: git log --oneline upstream/main..HEAD
+8561ab7f Add multimodal prefix cache feasibility probe
+auto-confirmed: Rebase feat/omni-multimodal-prefix-cache in /data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache onto upstream/main?
+[/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache]$ git rebase upstream/main
+rebased feat/omni-multimodal-prefix-cache: 8561ab7fc7e9 -> c879d561cf8d
+
+feature commits after rebase; this should contain only feature work: git log --oneline upstream/main..HEAD
+c879d561 Add multimodal prefix cache feasibility probe
+
+commits to push to origin/feat/omni-multimodal-prefix-cache: git log --oneline origin/feat/omni-multimodal-prefix-cache..HEAD
+c879d561 Add multimodal prefix cache feasibility probe
+1ad75cc1 [CI] Expand Stage 1 to cover full set of Seed TTS on ASR (#880)
+
+remote commits not in local feat/omni-multimodal-prefix-cache: git log --oneline HEAD..origin/feat/omni-multimodal-prefix-cache
+8561ab7f Add multimodal prefix cache feasibility probe
+auto-confirmed: Push feat/omni-multimodal-prefix-cache to origin/feat/omni-multimodal-prefix-cache with --force-with-lease?
+[/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache]$ git push --force-with-lease origin HEAD:feat/omni-multimodal-prefix-cache

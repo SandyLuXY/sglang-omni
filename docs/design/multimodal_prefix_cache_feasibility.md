@@ -5,27 +5,67 @@
 This note covers only Qwen3-Omni and Ming-Omni on branch
 `feat/omni-multimodal-prefix-cache`.
 
-The current evidence combines source review and a lightweight probe that executes
-the active request-builder/cache code paths with synthetic tensors. It is valid
-for cache-mechanics feasibility. It is not a full-model latency benchmark.
+The current evidence combines source review, a lightweight synthetic probe that
+executes the active request-builder/cache code paths, and a GPU-backed
+full-model serving probe for repeated local image input. The synthetic probe is
+valid for cache-mechanics feasibility, while the serving probe gives measured
+latency and server-side prefix/cache trace evidence for the image-input,
+text-output path.
 
 Raw probe artifacts:
 
 - `logs/multimodal_prefix_cache_20260624_224411/results.json`
 - `logs/multimodal_prefix_cache_20260624_224411/summary.md`
+- `logs/benchmark_multimodal_prefix_cache_20260624_224653/client/qwen_repeated_media.json`
+- `logs/benchmark_multimodal_prefix_cache_20260624_224653/client/qwen_repeated_media.md`
+- `logs/benchmark_multimodal_prefix_cache_20260624_224653/client/qwen_first_attempt_failure.md`
+- `logs/benchmark_multimodal_prefix_cache_20260624_224653/client/ming_repeated_media.json`
+- `logs/benchmark_multimodal_prefix_cache_20260624_224653/client/ming_repeated_media.md`
+- `logs/benchmark_multimodal_prefix_cache_20260624_224653/server/qwen_server.log`
+- `logs/benchmark_multimodal_prefix_cache_20260624_224653/server/ming_server.log`
+- `logs/benchmark_multimodal_prefix_cache_20260624_224653/sync/sync-main.txt`
+- `logs/benchmark_multimodal_prefix_cache_20260624_224653/sync/sync-feature.txt`
 
 Run command:
 
 ```bash
 python scripts/experiments/multimodal_prefix_cache_probe.py --repeats 30
+python scripts/experiments/multimodal_server_repeated_media_probe.py \
+  --base-url http://127.0.0.1:8100 \
+  --model qwen3-omni \
+  --media-kind image \
+  --media docs/_static/image/higgs-architecture.png \
+  --alt-media docs/_static/image/moss-tts-arch-local.png \
+  --cold-concurrency 4 \
+  --repeats 4 \
+  --stream \
+  --max-tokens 16 \
+  --output logs/benchmark_multimodal_prefix_cache_20260624_224653/client/qwen_repeated_media.json \
+  --markdown-output logs/benchmark_multimodal_prefix_cache_20260624_224653/client/qwen_repeated_media.md
+python scripts/experiments/multimodal_server_repeated_media_probe.py \
+  --base-url http://127.0.0.1:8101 \
+  --model ming-omni \
+  --media-kind image \
+  --media docs/_static/image/llada2.0_uni_architecture.png \
+  --alt-media tests/data/cars.jpg \
+  --cold-concurrency 4 \
+  --repeats 4 \
+  --stream \
+  --max-tokens 16 \
+  --output logs/benchmark_multimodal_prefix_cache_20260624_224653/client/ming_repeated_media.json \
+  --markdown-output logs/benchmark_multimodal_prefix_cache_20260624_224653/client/ming_repeated_media.md
 ```
 
 Environment captured by the probe:
 
-- commit: `86e73bdb`
+- synthetic probe commit: `86e73bdb` with probe files still untracked
+- full-model serving probe post-sync commit: `c879d561`
 - Python: `3.12.3`
 - GPUs visible: 8 x H100 80GB, idle at collection time
-- full-model-performance claim: false
+- Qwen serving run: GPU 0, `Qwen/Qwen3-Omni-30B-A3B-Instruct`, text-output
+  mode, image input, `SGLANG_OMNI_TRACE_ENCODER_CACHE=1`
+- Ming serving run: GPUs 2-5, `inclusionAI/Ming-flash-omni-2.0`, thinker
+  TP=4, text-output mode, image input
 
 ## Current Code Path
 
@@ -173,6 +213,81 @@ Interpretation:
   `StageOutputCache` would reduce that to 1, an avoidable 90% repeated-encoder
   forward ratio under this repeated-media workload.
 
+### Full-Model Serving Probe
+
+The serving probe launches the real servers and sends streamed
+`/v1/chat/completions` image-input/text-output requests. Each run sends 4
+simultaneous same-image requests, 4 warm sequential same-image requests, and 1
+different-image request. The client measures end-to-end request latency and
+first streamed text delta. Server logs provide the cache evidence.
+
+Qwen3-Omni launch:
+
+```bash
+CUDA_VISIBLE_DEVICES=0 SGLANG_OMNI_TRACE_ENCODER_CACHE=1 \
+  /data/.venv/bin/python -m sglang_omni.cli serve \
+  --model-path Qwen/Qwen3-Omni-30B-A3B-Instruct \
+  --model-name qwen3-omni \
+  --text-only \
+  --host 127.0.0.1 \
+  --port 8100
+```
+
+Ming-Omni launch:
+
+```bash
+CUDA_VISIBLE_DEVICES=2,3,4,5 \
+  /data/.venv/bin/python -m sglang_omni.cli serve \
+  --model-path inclusionAI/Ming-flash-omni-2.0 \
+  --model-name ming-omni \
+  --text-only \
+  --host 127.0.0.1 \
+  --port 8101 \
+  --thinker-tp-size 4 \
+  --thinker-gpus 0,1,2,3 \
+  --mem-fraction-static 0.80
+```
+
+Client timing:
+
+| Model | Phase | Requests | Success | Mean latency s | p50 latency s | p95 latency s | Mean first delta s |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Qwen3-Omni | cold concurrent same image | 4 | 4 | 0.558 | 0.560 | 0.560 | 0.433 |
+| Qwen3-Omni | warm sequential same image | 4 | 4 | 0.264 | 0.264 | 0.274 | 0.180 |
+| Qwen3-Omni | single different image | 1 | 1 | 0.615 | 0.615 | 0.615 | 0.531 |
+| Ming-Omni | cold concurrent same image | 4 | 4 | 5.707 | 5.705 | 5.720 | 4.948 |
+| Ming-Omni | warm sequential same image | 4 | 4 | 0.612 | 0.601 | 0.660 | 0.496 |
+| Ming-Omni | single different image | 1 | 1 | 0.883 | 0.883 | 0.883 | 0.767 |
+
+Server-side cache/prefix evidence:
+
+| Model | Phase | Server evidence |
+| --- | --- | --- |
+| Qwen3-Omni | cold concurrent same image | image encoder `miss` + `store` for the first request, then 3 `hit` records for the same image key; SGLang prefill saw `#new-token: 1484, #cached-token: 4` then `#new-token: 3, #cached-token: 4461` for the remaining 3 requests |
+| Qwen3-Omni | warm sequential same image | 4 image encoder `hit` records; each prefill saw `#new-token: 1, #cached-token: 1487` |
+| Qwen3-Omni | single different image | image encoder `miss` + `store`; prefill saw `#new-token: 3263, #cached-token: 4` |
+| Ming-Omni | cold concurrent same image | no encoder-cache trace records; SGLang prefill saw `#new-token: 986, #cached-token: 0` for the first request, then `#new-token: 3, #cached-token: 2955` for the remaining 3 requests |
+| Ming-Omni | warm sequential same image | no encoder-cache trace records; each prefill saw `#new-token: 1, #cached-token: 985` |
+| Ming-Omni | single different image | no encoder-cache trace records; prefill saw `#new-token: 939, #cached-token: 21` |
+
+Interpretation:
+
+- Qwen3 has measured real-server evidence for both non-AR image encoder output
+  cache hits and SGLang prefix/KV reuse. The warmed same-image phase reduced
+  mean latency from 0.558 s to 0.264 s and mean first-delta latency from 0.433 s
+  to 0.180 s.
+- The first Qwen concurrent group did not emit `dedup_same_batch`; one request
+  computed and stored the encoder output, then the other concurrent requests hit
+  the cache after the store. The effect is still one real image encoder forward
+  for 4 same-image requests in the observed run.
+- Ming has measured real-server evidence for prefix/KV reuse, but not active
+  encoder-output cache reuse. The warmed same-image phase reduced mean latency
+  from 5.707 s to 0.612 s and mean first-delta latency from 4.948 s to 0.496 s,
+  while server logs showed only SGLang prefill cached-token counters.
+- The different-image requests retained only small text/system prefix reuse,
+  confirming that media-keyed placeholder substitution prevents unsafe reuse of
+  the multimodal media span.
+
 ### SLO Scheduling Simulation
 
 The scheduling simulation is deterministic and synthetic. It models 5,000
@@ -202,9 +317,10 @@ The cache part is feasible and already partially implemented:
 
 - Qwen3-Omni has a working two-level pattern: non-AR encoder output cache plus
   SGLang radix prefix cache made multimodal-safe by content-keyed placeholder
-  substitution.
+  substitution. The serving probe validates this on the real image-input path.
 - Ming-Omni has the radix-safety part on the active thinker path, but lacks the
-  non-AR encoder output cache on active encoder stages.
+  non-AR encoder output cache on active encoder stages. The serving probe
+  validates prefix/KV reuse, but not encoder-output reuse.
 - The media-key approach handles the key correctness problem that would otherwise
   make generic `<imagePatch>` / `<audioPatch>` / `<videoPatch>` placeholders
   unsafe for radix prefix caching.
@@ -243,7 +359,8 @@ The scheduling part is feasible as a next framework layer, but not implemented:
    video memory pressure, and account for cache-hit probability without changing
    Stage or Coordinator tensor/control-plane boundaries.
 
-6. Formal GPU validation.
-   Run function-check and benchmark-full profiles for Qwen3-Omni and Ming-Omni
-   with repeated-media workloads, then compare profiler-backed TTFT, encoder
-   time, prefix-hit length, HBM usage, and deadline miss rate.
+6. Broader GPU validation.
+   Extend the current image-input serving probe to audio and video, add
+   structured request-profiler events, and compare profiler-backed TTFT, encoder
+   time, prefix-hit length, HBM usage, and deadline miss rate under repeated
+   media plus mixed-modality streaming traffic.

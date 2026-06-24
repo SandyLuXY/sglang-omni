@@ -1,0 +1,37 @@
+From https://github.com/sgl-project/sglang-omni
+ - [deleted]           (none)      -> upstream/pr-850
+   9cd84bcf..e14e1451  gh-pages    -> upstream/gh-pages
+   546da132..09d591ce  phase0-intra-node-nvlink-relay -> upstream/phase0-intra-node-nvlink-relay
+   b82781e6..1598a3f1  rl-higgs-rollout-logprobs -> upstream/rl-higgs-rollout-logprobs
+ * [new branch]        tts-stage-1 -> upstream/tts-stage-1
+Updating 86e73bdb..1ad75cc1
+Fast-forward
+ .claude/skills/tune-ci-thresholds/SKILL.md         | 14 +++++------
+ .../models/qwen3-asr-v1/stages.yaml                |  6 +++--
+ .../tune-ci-thresholds/models/tts/config.yaml      |  9 +++----
+ .../tune-ci-thresholds/models/tts/stages.yaml      | 12 ++++-----
+ .github/workflows/test-tts-ci.yaml                 |  1 -
+ benchmarks/eval/benchmark_qwen3_asr_concurrency.py |  5 ++--
+ tests/README.md                                    |  4 +--
+ tests/test_model/test_qwen3_asr_ci.py              | 29 +++++++++++-----------
+ 8 files changed, 37 insertions(+), 43 deletions(-)
+To https://github.com/SandyLuXY/sglang-omni.git
+   86e73bdb..1ad75cc1  HEAD -> main
+[/data/sglang-omni]$ git fetch --prune origin
+[/data/sglang-omni]$ git fetch --prune upstream
+
+commits missing from local main: git log --oneline HEAD..upstream/main
+1ad75cc1 [CI] Expand Stage 1 to cover full set of Seed TTS on ASR (#880)
+
+local main commits not in upstream/main: git log --oneline upstream/main..HEAD
+(none)
+auto-confirmed: Fast-forward /data/sglang-omni main to upstream/main?
+[/data/sglang-omni]$ git merge --ff-only upstream/main
+
+commits to push to origin/main: git log --oneline origin/main..HEAD
+1ad75cc1 [CI] Expand Stage 1 to cover full set of Seed TTS on ASR (#880)
+
+commits on origin/main not in local main: git log --oneline HEAD..origin/main
+(none)
+auto-confirmed: Push clean main to origin/main?
+[/data/sglang-omni]$ git push origin HEAD:main
