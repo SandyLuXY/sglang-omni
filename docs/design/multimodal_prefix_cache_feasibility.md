@@ -6,11 +6,11 @@ This note covers only Qwen3-Omni and Ming-Omni on branch
 `feat/omni-multimodal-prefix-cache`.
 
 The current evidence combines source review, a lightweight synthetic probe that
-executes the active request-builder/cache code paths, and a GPU-backed
-full-model serving probe for repeated local image input. The synthetic probe is
-valid for cache-mechanics feasibility, while the serving probe gives measured
-latency and server-side prefix/cache trace evidence for the image-input,
-text-output path.
+executes the active request-builder/cache code paths, GPU-backed full-model
+serving probes for repeated local image/audio/video input, and a measured-input
+SLO scheduler simulation driven by those serving artifacts. The synthetic probe
+is valid for cache-mechanics feasibility, while the serving probes give measured
+latency and server-side prefix/cache trace evidence for text-output paths.
 
 Raw probe artifacts:
 
@@ -30,6 +30,10 @@ Raw probe artifacts:
 - `logs/benchmark_multimodal_prefix_cache_av_20260624_230319/client/qwen_video_repeated_media.json`
 - `logs/benchmark_multimodal_prefix_cache_av_20260624_230319/client/ming_audio_repeated_media.json`
 - `logs/benchmark_multimodal_prefix_cache_av_20260624_230319/client/ming_video_repeated_media_after_patch.json`
+- `logs/benchmark_multimodal_slo_scheduler_20260624_232102/benchmark_summary.md`
+- `logs/benchmark_multimodal_slo_scheduler_20260624_232102/results/measured_slo_target035/results.json`
+- `logs/benchmark_multimodal_slo_scheduler_20260624_232102/results/measured_slo_target082/results.json`
+- `logs/benchmark_multimodal_slo_scheduler_20260624_232102/results/measured_slo_target035_highcache/results.json`
 
 Run command:
 
@@ -87,6 +91,31 @@ python scripts/experiments/multimodal_server_repeated_media_probe.py \
   --video-max-pixels 200704 \
   --output logs/benchmark_multimodal_prefix_cache_av_20260624_230319/client/ming_video_repeated_media_after_patch.json \
   --markdown-output logs/benchmark_multimodal_prefix_cache_av_20260624_230319/client/ming_video_repeated_media_after_patch.md
+python scripts/experiments/multimodal_measured_slo_scheduler_probe.py \
+  --output-dir logs/benchmark_multimodal_slo_scheduler_20260624_232102/results/measured_slo_target035 \
+  --requests 100000 \
+  --workers 2 \
+  --target-utilization 0.35 \
+  --seed 20260624 \
+  --warmup-requests 10000 \
+  --zipf-skew 1.05
+python scripts/experiments/multimodal_measured_slo_scheduler_probe.py \
+  --output-dir logs/benchmark_multimodal_slo_scheduler_20260624_232102/results/measured_slo_target082 \
+  --requests 100000 \
+  --workers 2 \
+  --target-utilization 0.82 \
+  --seed 20260624 \
+  --warmup-requests 10000 \
+  --zipf-skew 1.05
+python scripts/experiments/multimodal_measured_slo_scheduler_probe.py \
+  --output-dir logs/benchmark_multimodal_slo_scheduler_20260624_232102/results/measured_slo_target035_highcache \
+  --requests 100000 \
+  --workers 2 \
+  --target-utilization 0.35 \
+  --seed 20260624 \
+  --warmup-requests 10000 \
+  --zipf-skew 1.05 \
+  --cache-capacity audio=8192,image=4096,video=1024
 ```
 
 Environment captured by the probe:
@@ -102,6 +131,9 @@ Environment captured by the probe:
 - follow-up audio/video serving probe commit before code fix: `a2cb475c`
 - follow-up audio/video serving probe included a Ming video compatibility fix
   validated before rerunning Ming video
+- measured-input SLO scheduler probe started from commit `4b61fcf1`; the
+  simulator/report additions are included in the follow-up commit. It is
+  CPU-only and uses the committed serving JSON artifacts as measured TTFT inputs
 
 ## Current Code Path
 
@@ -395,6 +427,74 @@ Interpretation:
   but the numbers must be replaced by profiler-backed stage service times before
   making deployment claims.
 
+### Measured-Input SLO Scheduling Probe
+
+The measured-input scheduler probe replaces the hand-picked service times above
+with streaming first-delta latency from the Qwen3-Omni and Ming-Omni
+repeated-media serving artifacts. It simulates 100,000 requests per model,
+2 workers per model, audio/image/video mix 50%/30%/20%, Zipf media locality,
+10,000 warmup arrivals, and first-delta SLOs of 600 ms for audio, 1200 ms for
+image, and 3500 ms for video. It is still a queueing simulation, not a live
+Stage runtime benchmark.
+
+Measured TTFT inputs:
+
+| Model | Modality | Cold TTFT ms | Warm TTFT ms | Speedup |
+| --- | --- | ---: | ---: | ---: |
+| Qwen3-Omni | image | 444.6335 | 180.3376 | 2.47x |
+| Qwen3-Omni | audio | 1287.0211 | 177.4352 | 7.25x |
+| Qwen3-Omni | video | 3135.5938 | 2168.6994 | 1.45x |
+| Ming-Omni | image | 5237.5639 | 496.0815 | 10.56x |
+| Ming-Omni | audio | 1862.3025 | 199.5327 | 9.33x |
+| Ming-Omni | video | 5271.7307 | 2040.5090 | 2.58x |
+
+Default cache capacity, 0.35 target utilization:
+
+| Model | Strategy | Offered load | Hit rate | Deadline miss | Audio miss | P95 queue ms |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| Qwen3-Omni | FIFO, no cache | 0.710 | 0.00% | 71.73% | 100.00% | 4171.5765 |
+| Qwen3-Omni | FIFO, cache | 0.350 | 83.99% | 11.72% | 18.04% | 1034.8995 |
+| Qwen3-Omni | EDF, cache | 0.350 | 83.99% | 11.18% | 17.04% | 930.5374 |
+| Qwen3-Omni | cache-weighted EDF | 0.350 | 83.99% | 11.02% | 16.91% | 915.0651 |
+| Ming-Omni | FIFO, no cache | 1.046 | 0.00% | 100.00% | 100.00% | 7203359.0918 |
+| Ming-Omni | FIFO, cache | 0.350 | 84.01% | 25.23% | 21.30% | 1746.8141 |
+| Ming-Omni | EDF, cache | 0.350 | 84.01% | 24.65% | 20.32% | 1560.9703 |
+| Ming-Omni | cache-weighted EDF | 0.350 | 84.01% | 24.52% | 20.12% | 1571.8367 |
+
+Default cache capacity, 0.82 target utilization:
+
+| Model | Strategy | Offered load | Hit rate | Deadline miss | Audio miss | P95 queue ms |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| Qwen3-Omni | FIFO, no cache | 1.664 | 0.00% | 100.00% | 100.00% | 26404043.0286 |
+| Qwen3-Omni | FIFO, cache | 0.820 | 83.99% | 58.82% | 66.09% | 6572.2627 |
+| Qwen3-Omni | EDF, cache | 0.820 | 83.99% | 51.86% | 56.25% | 5541.0796 |
+| Qwen3-Omni | cache-weighted EDF | 0.820 | 83.99% | 52.10% | 56.59% | 5602.9622 |
+| Ming-Omni | FIFO, no cache | 2.450 | 0.00% | 100.00% | 100.00% | 99635752.3012 |
+| Ming-Omni | FIFO, cache | 0.820 | 84.01% | 69.81% | 70.95% | 11832.8650 |
+| Ming-Omni | EDF, cache | 0.820 | 84.01% | 66.95% | 65.66% | 11384.6920 |
+| Ming-Omni | cache-weighted EDF | 0.820 | 84.01% | 67.50% | 66.77% | 10889.5594 |
+
+High cache-capacity sensitivity at 0.35 target utilization raises synthetic hit
+rate to about 96%. Under cache-weighted EDF, Qwen3-Omni deadline miss falls to
+8.00% and Ming-Omni to 10.03%. This shows the dominant lever is cache-hit rate;
+the scheduling policy gives modest but measurable reductions when the workload
+is not already queue dominated.
+
+Measured-input interpretation:
+
+- Cache is mandatory for the selected realtime SLOs. No-cache Qwen3-Omni still
+  misses 71.73% at the 0.35 load point, and no-cache Ming-Omni is unstable even
+  there because cold image/audio/video TTFT exceeds the selected SLOs.
+- EDF/cache-weighted EDF helps at moderate load but is not a rescue mechanism.
+  At 0.35 load, cache-weighted EDF improves Qwen3-Omni miss rate by 0.70
+  percentage points over FIFO-cache and Ming-Omni by 0.71 points.
+- At 0.82 load, queueing dominates. Qwen3-Omni remains above 50% miss and
+  Ming-Omni above 66% miss even with EDF/cache-weighted EDF.
+- A unified SLO scheduler is feasible as a control-plane policy, but a credible
+  realtime system also needs high cache hit rate, in-flight duplicate
+  coalescing, backpressure/capacity control, and profiler-backed stage service
+  estimates.
+
 ## Feasibility Conclusion
 
 The cache part is feasible and already partially implemented:
@@ -419,7 +519,10 @@ The scheduling part is feasible as a next framework layer, but not implemented:
 - The current code does not have a unified SLO-aware scheduler across stages,
   backpressure, cache-admission policy, or distributed cache namespace.
 - The synthetic scheduler result shows directionally large benefit for audio SLO
-  misses, but it is not sufficient for production capacity claims.
+  misses. The measured-input scheduler probe is stricter: it shows cache and
+  deadline-aware scheduling are necessary, but scheduler priority alone cannot
+  meet strict realtime SLOs when cold multimodal TTFT exceeds the deadline or
+  when queueing dominates.
 
 ## Engineering Gaps
 
@@ -445,7 +548,10 @@ The scheduling part is feasible as a next framework layer, but not implemented:
 5. SLO scheduler.
    Add a policy layer that can prioritize audio-latency-sensitive work, bound
    video memory pressure, and account for cache-hit probability without changing
-   Stage or Coordinator tensor/control-plane boundaries.
+   Stage or Coordinator tensor/control-plane boundaries. The measured-input
+   probe suggests EDF/cache-weighted EDF should be paired with admission control:
+   at 0.82 target utilization, deadline misses remain above 50% for Qwen3-Omni
+   and above 66% for Ming-Omni.
 
 6. Broader streaming validation.
    Add structured request-profiler events and run mixed-modality text+audio
