@@ -42,6 +42,30 @@ from sglang_omni.utils.audio_payload import audio_waveform_payload
 N_VQ = 12
 
 
+class _FakeRefEncoderStage(torch.nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+        self.module_type = "PatchedPretransform"
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        input_lengths: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        return x, input_lengths
+
+
+class _FakePreprocessingAudioTokenizer:
+    def __init__(self) -> None:
+        self.model = types.SimpleNamespace(
+            encoder=torch.nn.ModuleList([_FakeRefEncoderStage()])
+        )
+
+    def encode_paths(self, paths, *, num_quantizers):
+        assert num_quantizers == N_VQ
+        return []
+
+
 class _FakeEncodedAudio:
     def __init__(self, audio_codes: torch.Tensor, audio_codes_lengths: torch.Tensor):
         self.audio_codes = audio_codes
@@ -365,6 +389,57 @@ def test_audio_tokenizer_loader_matches_processor_codec_weight_dtype(monkeypatch
         "trust_remote_code": True,
         "codec_weight_dtype": "bf16",
     }
+
+
+def test_audio_tokenizer_loader_prefers_flash_attention_2_when_available(monkeypatch):
+    from contextlib import nullcontext
+
+    from sglang_omni.models.moss_tts_local import audio_tokenizer as audio_tokenizer_mod
+    from sglang_omni.models.moss_tts_local.audio_tokenizer import (
+        load_moss_tts_local_audio_tokenizer,
+    )
+
+    class _FakeLoadedCodec(_FakeAudioTokenizerModel):
+        def __init__(self):
+            super().__init__()
+            self.attention_implementation_calls: list[str] = []
+
+        def set_attention_implementation(self, value):
+            self.attention_implementation_calls.append(value)
+
+        def eval(self):
+            return self
+
+        def to(self, device):
+            return self
+
+    loaded_model = _FakeLoadedCodec()
+
+    class _FakeAutoModel:
+        @staticmethod
+        def from_pretrained(model_path, **kwargs):
+            del model_path, kwargs
+            return loaded_model
+
+    monkeypatch.setattr(
+        audio_tokenizer_mod,
+        "resolve_moss_checkpoint",
+        lambda model_path: f"/resolved/{model_path}",
+    )
+    monkeypatch.setattr(
+        audio_tokenizer_mod,
+        "moss_transformers_processor_compat",
+        nullcontext,
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "transformers",
+        types.SimpleNamespace(AutoModel=_FakeAutoModel),
+    )
+
+    load_moss_tts_local_audio_tokenizer("codec", device="cuda:7")
+
+    assert loaded_model.attention_implementation_calls == ["flash_attention_2"]
 
 
 # Registry / config
@@ -717,18 +792,13 @@ def test_create_preprocessing_executor_env_toggle(monkeypatch):
     from sglang_omni.models.moss_tts_local import request_builders as rb
     from sglang_omni.models.moss_tts_local import stages
 
-    class _FakeAudioTokenizer:
-        def encode_paths(self, paths, *, num_quantizers):
-            assert num_quantizers == N_VQ
-            return []
-
     monkeypatch.setattr(
         stages, "_load_moss_tts_local_processor", lambda *a, **k: _FakeProcessor()
     )
     monkeypatch.setattr(
         stages,
         "load_moss_tts_local_audio_tokenizer",
-        lambda *a, **k: _FakeAudioTokenizer(),
+        lambda *a, **k: _FakePreprocessingAudioTokenizer(),
     )
 
     # MOSS_REF_AUDIO_CACHE=0 disables the wrapper at startup (kill switch).
@@ -750,20 +820,17 @@ def test_create_preprocessing_executor_env_toggle(monkeypatch):
 def test_create_preprocessing_executor_uses_model_config_codec_path(monkeypatch):
     from sglang_omni.models.moss_tts_local import stages
 
-    class _FakeAudioTokenizer:
-        def encode_paths(self, paths, *, num_quantizers):
-            return []
-
     processor = _FakeProcessor()
     processor.model_config = types.SimpleNamespace(
         n_vq=N_VQ,
         audio_tokenizer_name_or_path="codec-from-model-config",
     )
     loaded_codec_paths = []
+    loaded_tokenizer = _FakePreprocessingAudioTokenizer()
 
     def fake_load_audio_tokenizer(model_path, *, device):
         loaded_codec_paths.append(model_path)
-        return _FakeAudioTokenizer()
+        return loaded_tokenizer
 
     monkeypatch.setattr(
         stages, "_load_moss_tts_local_processor", lambda model_path: processor
@@ -777,6 +844,7 @@ def test_create_preprocessing_executor_uses_model_config_codec_path(monkeypatch)
     stages.create_preprocessing_executor("model", device="cpu")
 
     assert loaded_codec_paths == ["codec-from-model-config"]
+    assert isinstance(loaded_tokenizer.model.encoder, stages.MossTTSLocalRefEncoder)
 
 
 def test_preprocess_and_result_adapter():

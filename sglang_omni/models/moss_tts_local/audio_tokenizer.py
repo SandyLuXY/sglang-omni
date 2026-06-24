@@ -162,6 +162,9 @@ def load_moss_tts_local_audio_tokenizer(
         raise RuntimeError(
             "MOSS-TTS Local support requires OpenMOSS-Team/MOSS-Audio-Tokenizer-v2"
         ) from exc
+    set_attention_implementation = getattr(model, "set_attention_implementation", None)
+    if callable(set_attention_implementation):
+        set_attention_implementation("flash_attention_2")
     model.eval()
     model.to(device)
     return MossTTSLocalAudioTokenizer(

@@ -35,6 +35,7 @@ from sglang_omni.models.moss_tts_local.request_builders import (
     preprocess_moss_tts_local_payload,
     set_moss_tts_local_preprocessing_context,
 )
+from sglang_omni.models.moss_tts_local.ref_encoder import MossTTSLocalRefEncoder
 from sglang_omni.models.moss_tts_local.streaming_vocoder import (
     MossTTSLocalStreamingVocoderScheduler,
 )
@@ -584,6 +585,12 @@ def create_preprocessing_executor(
     audio_tokenizer = load_moss_tts_local_audio_tokenizer(
         _resolve_audio_tokenizer_model_path(processor, codec_model_path),
         device=device,
+    )
+    ref_encoder = MossTTSLocalRefEncoder(audio_tokenizer.model.encoder)
+    audio_tokenizer.model.encoder = ref_encoder
+    logger.info(
+        f"MOSS-TTS Local ref encoder uses packed SGLang attention "
+        f"stages={len(ref_encoder)}"
     )
     reference_encoder: Any = _BatchedReferenceEncoder(
         audio_tokenizer,

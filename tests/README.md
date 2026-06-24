@@ -75,6 +75,7 @@ tests/
     ├── moss_tts_local/
     │   ├── test_pipeline.py
     │   ├── test_radix_hash.py
+    │   ├── test_ref_encoder.py
     │   ├── test_s0_gate.py
     │   ├── test_state_pool.py
     │   ├── test_streaming_vocoder.py
