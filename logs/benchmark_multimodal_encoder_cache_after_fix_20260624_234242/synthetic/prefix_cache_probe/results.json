@@ -1,0 +1,179 @@
+{
+  "encoder_cache": [
+    {
+      "batch_size": 3,
+      "cold_model_calls_median": 1.0,
+      "cold_ms_median": 3.1452,
+      "cold_processed_units_median": 8.0,
+      "duplicate_requests": 1,
+      "model": "qwen3_omni",
+      "notes": "Synthetic encoder sleeps 3 ms per batched forward; processed_units are visual tokens. The active Qwen3 image path deduplicates same-batch cache keys.",
+      "same_batch_duplicate_unit_reduction": 0.3333,
+      "stage": "image_encoder",
+      "unique_cache_keys": 2,
+      "warm_model_calls_median": 0.0,
+      "warm_ms_median": 0.0229,
+      "warm_processed_units_median": 0.0,
+      "warm_speedup": 137.34
+    },
+    {
+      "batch_size": 3,
+      "cold_model_calls_median": 1.0,
+      "cold_ms_median": 3.1345,
+      "cold_processed_units_median": 2.0,
+      "duplicate_requests": 1,
+      "model": "qwen3_omni",
+      "notes": "Synthetic encoder sleeps 3 ms per batched forward; processed_units are audio rows. Warm cache hits skip compute, and the active audio batching path now coalesces same-batch duplicate cache keys.",
+      "same_batch_duplicate_unit_reduction": 0.3333,
+      "stage": "audio_encoder",
+      "unique_cache_keys": 2,
+      "warm_model_calls_median": 0.0,
+      "warm_ms_median": 0.0213,
+      "warm_processed_units_median": 0.0,
+      "warm_speedup": 147.16
+    }
+  ],
+  "identity": {
+    "generated_at": "2026-06-24T23:43:18.785169+00:00",
+    "git_commit": "59af39b6",
+    "git_dirty_state": "?? logs/benchmark_multimodal_encoder_cache_after_fix_20260624_234242/",
+    "nvidia_smi": "0, NVIDIA H100 80GB HBM3, 4, 81559, 0\n1, NVIDIA H100 80GB HBM3, 14, 81559, 0\n2, NVIDIA H100 80GB HBM3, 4, 81559, 0\n3, NVIDIA H100 80GB HBM3, 4, 81559, 0\n4, NVIDIA H100 80GB HBM3, 4, 81559, 0\n5, NVIDIA H100 80GB HBM3, 4, 81559, 0\n6, NVIDIA H100 80GB HBM3, 8, 81559, 0\n7, NVIDIA H100 80GB HBM3, 4, 81559, 0",
+    "probe_repeats": 30,
+    "python": "Python 3.12.3",
+    "valid_for_full_model_performance_claim": false
+  },
+  "ming_encoder_cache": {
+    "active_encoder_cache": "wired in sglang_omni/models/ming_omni/stages.py",
+    "media_key_to_radix_cache": "wired in sglang_omni/models/ming_omni/bootstrap.py",
+    "model": "ming_omni",
+    "notes": "Ming active stages pass cache_key through preprocessing/merge for radix safety and now use StageOutputCache in active audio/image encoder factories. This is a synthetic stage-helper probe, not a full-model run.",
+    "stages": [
+      {
+        "avoidable_encoder_forwards_ratio": 0.9,
+        "expected_without_cache_model_calls": 10,
+        "first_request_ms": 3.1116,
+        "model_calls": 1,
+        "repeated_media_requests": 10,
+        "stage": "audio_encoder",
+        "warm_request_ms_median": 0.0106
+      },
+      {
+        "avoidable_encoder_forwards_ratio": 0.9,
+        "expected_without_cache_model_calls": 10,
+        "first_request_ms": 3.0804,
+        "model_calls": 1,
+        "repeated_media_requests": 10,
+        "stage": "image_encoder",
+        "warm_request_ms_median": 0.0106
+      }
+    ]
+  },
+  "prefix_cases": {
+    "ming_omni": [
+      {
+        "keyed_common_prefix_tokens": 31,
+        "keyed_reuse_ratio": 0.8857,
+        "name": "same_media_different_question",
+        "prompt_len": 35,
+        "raw_common_prefix_tokens": 31,
+        "unsafe_raw_reuse_tokens_avoided": 0
+      },
+      {
+        "keyed_common_prefix_tokens": 2,
+        "keyed_reuse_ratio": 0.0571,
+        "name": "different_image_same_shape",
+        "prompt_len": 35,
+        "raw_common_prefix_tokens": 35,
+        "unsafe_raw_reuse_tokens_avoided": 33
+      },
+      {
+        "keyed_common_prefix_tokens": 19,
+        "keyed_reuse_ratio": 0.5429,
+        "name": "different_audio_same_shape",
+        "prompt_len": 35,
+        "raw_common_prefix_tokens": 35,
+        "unsafe_raw_reuse_tokens_avoided": 16
+      },
+      {
+        "keyed_common_prefix_tokens": 2,
+        "keyed_reuse_ratio": 0.0769,
+        "name": "different_video_same_shape",
+        "prompt_len": 26,
+        "raw_common_prefix_tokens": 26,
+        "unsafe_raw_reuse_tokens_avoided": 24
+      }
+    ],
+    "qwen3_omni": [
+      {
+        "keyed_common_prefix_tokens": 31,
+        "keyed_reuse_ratio": 0.8857,
+        "name": "same_media_different_question",
+        "prompt_len": 35,
+        "raw_common_prefix_tokens": 31,
+        "unsafe_raw_reuse_tokens_avoided": 0
+      },
+      {
+        "keyed_common_prefix_tokens": 2,
+        "keyed_reuse_ratio": 0.0571,
+        "name": "different_image_same_shape",
+        "prompt_len": 35,
+        "raw_common_prefix_tokens": 35,
+        "unsafe_raw_reuse_tokens_avoided": 33
+      },
+      {
+        "keyed_common_prefix_tokens": 19,
+        "keyed_reuse_ratio": 0.5429,
+        "name": "different_audio_same_shape",
+        "prompt_len": 35,
+        "raw_common_prefix_tokens": 35,
+        "unsafe_raw_reuse_tokens_avoided": 16
+      },
+      {
+        "keyed_common_prefix_tokens": 2,
+        "keyed_reuse_ratio": 0.0769,
+        "name": "different_video_same_shape",
+        "prompt_len": 26,
+        "raw_common_prefix_tokens": 26,
+        "unsafe_raw_reuse_tokens_avoided": 24
+      }
+    ]
+  },
+  "scheduling_simulation": [
+    {
+      "audio_miss_rate": 0.1033,
+      "deadline_miss_rate": 0.0476,
+      "mean_latency_ms": 42.1834,
+      "p50_latency_ms": 28.3358,
+      "p95_latency_ms": 112.4192,
+      "p99_latency_ms": 158.5473,
+      "requests": 5000,
+      "strategy": "fifo",
+      "video_miss_rate": 0.0,
+      "workers": 2
+    },
+    {
+      "audio_miss_rate": 0.0022,
+      "deadline_miss_rate": 0.001,
+      "mean_latency_ms": 34.3515,
+      "p50_latency_ms": 20.0,
+      "p95_latency_ms": 113.0682,
+      "p99_latency_ms": 211.2878,
+      "requests": 5000,
+      "strategy": "edf",
+      "video_miss_rate": 0.0,
+      "workers": 2
+    },
+    {
+      "audio_miss_rate": 0.0004,
+      "deadline_miss_rate": 0.0002,
+      "mean_latency_ms": 33.2316,
+      "p50_latency_ms": 20.0,
+      "p95_latency_ms": 97.8369,
+      "p99_latency_ms": 198.9059,
+      "requests": 5000,
+      "strategy": "hybrid_slo_cache",
+      "video_miss_rate": 0.0,
+      "workers": 2
+    }
+  ]
+}

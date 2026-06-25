@@ -1,0 +1,221 @@
+{
+  "config": {
+    "alt_media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/cars.jpg",
+    "base_url": "http://127.0.0.1:8101",
+    "cold_concurrency": 4,
+    "markdown_output": "logs/benchmark_multimodal_encoder_cache_after_fix_20260624_234242/client/ming_image_repeated_media_after_fix.md",
+    "max_tokens": 16,
+    "media": "docs/_static/image/llada2.0_uni_architecture.png",
+    "media_kind": "image",
+    "model": "ming-omni",
+    "output": "logs/benchmark_multimodal_encoder_cache_after_fix_20260624_234242/client/ming_image_repeated_media_after_fix.json",
+    "primary_media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/docs/_static/image/llada2.0_uni_architecture.png",
+    "prompt": "Describe the image briefly.",
+    "repeats": 4,
+    "request_id_prefix": "ming-image-afterfix-20260624-234242",
+    "response_chars": 240,
+    "seed": 1234,
+    "stream": true,
+    "temperature": 0.0,
+    "timeout_s": 300.0,
+    "video_fps": null,
+    "video_max_frames": null,
+    "video_max_pixels": null
+  },
+  "requests": [
+    {
+      "completion_tokens": 16,
+      "error": null,
+      "first_delta_seconds": 4.193890656344593,
+      "first_event_seconds": 4.193890656344593,
+      "index": 0,
+      "latency_seconds": 4.272392220795155,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/docs/_static/image/llada2.0_uni_architecture.png",
+      "ok": true,
+      "phase": "cold_concurrent_same_media",
+      "prompt_tokens": 983,
+      "request_id": "ming-image-afterfix-20260624-234242-cold_concurrent_same_media-0",
+      "response_text": "The image illustrates the architecture of the LLaVA 2.0 model,",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": 16,
+      "error": null,
+      "first_delta_seconds": 4.192324571311474,
+      "first_event_seconds": 4.192324571311474,
+      "index": 1,
+      "latency_seconds": 4.251412568613887,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/docs/_static/image/llada2.0_uni_architecture.png",
+      "ok": true,
+      "phase": "cold_concurrent_same_media",
+      "prompt_tokens": 983,
+      "request_id": "ming-image-afterfix-20260624-234242-cold_concurrent_same_media-1",
+      "response_text": "The image illustrates the architecture of the LLaVA 2.0 model,",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": 16,
+      "error": null,
+      "first_delta_seconds": 4.192669061012566,
+      "first_event_seconds": 4.192669061012566,
+      "index": 2,
+      "latency_seconds": 4.261240712366998,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/docs/_static/image/llada2.0_uni_architecture.png",
+      "ok": true,
+      "phase": "cold_concurrent_same_media",
+      "prompt_tokens": 983,
+      "request_id": "ming-image-afterfix-20260624-234242-cold_concurrent_same_media-2",
+      "response_text": "The image illustrates the architecture of the LLaVA 2.0-mini",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": 16,
+      "error": null,
+      "first_delta_seconds": 2.9060055557638407,
+      "first_event_seconds": 2.9060055557638407,
+      "index": 3,
+      "latency_seconds": 4.239266944117844,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/docs/_static/image/llada2.0_uni_architecture.png",
+      "ok": true,
+      "phase": "cold_concurrent_same_media",
+      "prompt_tokens": 983,
+      "request_id": "ming-image-afterfix-20260624-234242-cold_concurrent_same_media-3",
+      "response_text": "The image illustrates the architecture of the LLaVA 2.0-mini",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": 16,
+      "error": null,
+      "first_delta_seconds": 0.5856504160910845,
+      "first_event_seconds": 0.5856504160910845,
+      "index": 0,
+      "latency_seconds": 0.7054471904411912,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/cars.jpg",
+      "ok": true,
+      "phase": "single_different_media",
+      "prompt_tokens": 957,
+      "request_id": "ming-image-afterfix-20260624-234242-single_different_media-0",
+      "response_text": "The image displays four luxury cars:\n\n- Top left: A white Rolls",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": 16,
+      "error": null,
+      "first_delta_seconds": 0.5502313273027539,
+      "first_event_seconds": 0.5502313273027539,
+      "index": 0,
+      "latency_seconds": 0.670637228526175,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/docs/_static/image/llada2.0_uni_architecture.png",
+      "ok": true,
+      "phase": "warm_sequential_same_media",
+      "prompt_tokens": 983,
+      "request_id": "ming-image-afterfix-20260624-234242-warm_sequential_same_media-0",
+      "response_text": "The image illustrates the architecture of the LLaVA 2.0-mini",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": 16,
+      "error": null,
+      "first_delta_seconds": 0.5659258300438523,
+      "first_event_seconds": 0.5659258300438523,
+      "index": 1,
+      "latency_seconds": 0.6897959308698773,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/docs/_static/image/llada2.0_uni_architecture.png",
+      "ok": true,
+      "phase": "warm_sequential_same_media",
+      "prompt_tokens": 983,
+      "request_id": "ming-image-afterfix-20260624-234242-warm_sequential_same_media-1",
+      "response_text": "The image illustrates the architecture of the LLaVA 2.0-mini",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": 16,
+      "error": null,
+      "first_delta_seconds": 0.5651083691045642,
+      "first_event_seconds": 0.5651083691045642,
+      "index": 2,
+      "latency_seconds": 0.684520585462451,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/docs/_static/image/llada2.0_uni_architecture.png",
+      "ok": true,
+      "phase": "warm_sequential_same_media",
+      "prompt_tokens": 983,
+      "request_id": "ming-image-afterfix-20260624-234242-warm_sequential_same_media-2",
+      "response_text": "The image illustrates the architecture of the LLaVA 2.0-mini",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": 16,
+      "error": null,
+      "first_delta_seconds": 0.5520050097256899,
+      "first_event_seconds": 0.5520050097256899,
+      "index": 3,
+      "latency_seconds": 0.6710118893533945,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/docs/_static/image/llada2.0_uni_architecture.png",
+      "ok": true,
+      "phase": "warm_sequential_same_media",
+      "prompt_tokens": 983,
+      "request_id": "ming-image-afterfix-20260624-234242-warm_sequential_same_media-3",
+      "response_text": "The image illustrates the architecture of the LLaVA 2.0-mini",
+      "status_code": 200
+    }
+  ],
+  "summary": {
+    "cold_concurrent_same_media": {
+      "failed": 0,
+      "first_delta_seconds": {
+        "max": 4.193890656344593,
+        "mean": 3.8712224611081183,
+        "min": 2.9060055557638407,
+        "p50": 4.19249681616202,
+        "p95": 4.193707417044789
+      },
+      "latency_seconds": {
+        "max": 4.272392220795155,
+        "mean": 4.256078111473471,
+        "min": 4.239266944117844,
+        "p50": 4.2563266404904425,
+        "p95": 4.2707194945309315
+      },
+      "requests": 4,
+      "successful": 4
+    },
+    "single_different_media": {
+      "failed": 0,
+      "first_delta_seconds": {
+        "max": 0.5856504160910845,
+        "mean": 0.5856504160910845,
+        "min": 0.5856504160910845,
+        "p50": 0.5856504160910845,
+        "p95": 0.5856504160910845
+      },
+      "latency_seconds": {
+        "max": 0.7054471904411912,
+        "mean": 0.7054471904411912,
+        "min": 0.7054471904411912,
+        "p50": 0.7054471904411912,
+        "p95": 0.7054471904411912
+      },
+      "requests": 1,
+      "successful": 1
+    },
+    "warm_sequential_same_media": {
+      "failed": 0,
+      "first_delta_seconds": {
+        "max": 0.5659258300438523,
+        "mean": 0.5583176340442151,
+        "min": 0.5502313273027539,
+        "p50": 0.558556689415127,
+        "p95": 0.5658032109029592
+      },
+      "latency_seconds": {
+        "max": 0.6897959308698773,
+        "mean": 0.6789914085529745,
+        "min": 0.670637228526175,
+        "p50": 0.6777662374079227,
+        "p95": 0.6890046290587635
+      },
+      "requests": 4,
+      "successful": 4
+    }
+  }
+}

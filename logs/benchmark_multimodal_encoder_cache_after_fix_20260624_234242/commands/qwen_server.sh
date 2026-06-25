@@ -1,0 +1,1 @@
+CUDA_VISIBLE_DEVICES=0 SGLANG_OMNI_TRACE_ENCODER_CACHE=1 /data/.venv/bin/python -m sglang_omni.cli serve --model-path Qwen/Qwen3-Omni-30B-A3B-Instruct --model-name qwen3-omni --text-only --host 127.0.0.1 --port 8100

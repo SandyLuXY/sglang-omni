@@ -1,0 +1,32 @@
+Current branch feat/omni-multimodal-prefix-cache is up to date.
+To https://github.com/SandyLuXY/sglang-omni.git
+   a4013b60..59af39b6  HEAD -> feat/omni-multimodal-prefix-cache
+[/data/sglang-omni]$ git fetch --prune origin
+[/data/sglang-omni]$ git fetch --prune upstream
+main matches upstream/main at 1ad75cc1
+feature worktree has 2 untracked paths; leaving them untouched.
+untracked logs paths: 2
+
+feature commits before rebase: git log --oneline upstream/main..HEAD
+59af39b6 Add active multimodal encoder cache fixes
+a4013b60 Add measured multimodal SLO scheduler probe
+4b61fcf1 Add audio video prefix cache serving evidence
+a2cb475c Add multimodal repeated-media serving benchmark
+c879d561 Add multimodal prefix cache feasibility probe
+auto-confirmed: Rebase feat/omni-multimodal-prefix-cache in /data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache onto upstream/main?
+[/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache]$ git rebase upstream/main
+
+feature commits after rebase; this should contain only feature work: git log --oneline upstream/main..HEAD
+59af39b6 Add active multimodal encoder cache fixes
+a4013b60 Add measured multimodal SLO scheduler probe
+4b61fcf1 Add audio video prefix cache serving evidence
+a2cb475c Add multimodal repeated-media serving benchmark
+c879d561 Add multimodal prefix cache feasibility probe
+
+commits to push to origin/feat/omni-multimodal-prefix-cache: git log --oneline origin/feat/omni-multimodal-prefix-cache..HEAD
+59af39b6 Add active multimodal encoder cache fixes
+
+remote commits not in local feat/omni-multimodal-prefix-cache: git log --oneline HEAD..origin/feat/omni-multimodal-prefix-cache
+(none)
+auto-confirmed: Push feat/omni-multimodal-prefix-cache to origin/feat/omni-multimodal-prefix-cache with --force-with-lease?
+[/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache]$ git push --force-with-lease origin HEAD:feat/omni-multimodal-prefix-cache

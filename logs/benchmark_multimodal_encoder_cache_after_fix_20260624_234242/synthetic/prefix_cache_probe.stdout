@@ -1,0 +1,182 @@
+{
+  "output_dir": "logs/benchmark_multimodal_encoder_cache_after_fix_20260624_234242/synthetic/prefix_cache_probe",
+  "summary": {
+    "identity": {
+      "generated_at": "2026-06-24T23:43:18.785169+00:00",
+      "git_commit": "59af39b6",
+      "git_dirty_state": "?? logs/benchmark_multimodal_encoder_cache_after_fix_20260624_234242/",
+      "python": "Python 3.12.3",
+      "nvidia_smi": "0, NVIDIA H100 80GB HBM3, 4, 81559, 0\n1, NVIDIA H100 80GB HBM3, 14, 81559, 0\n2, NVIDIA H100 80GB HBM3, 4, 81559, 0\n3, NVIDIA H100 80GB HBM3, 4, 81559, 0\n4, NVIDIA H100 80GB HBM3, 4, 81559, 0\n5, NVIDIA H100 80GB HBM3, 4, 81559, 0\n6, NVIDIA H100 80GB HBM3, 8, 81559, 0\n7, NVIDIA H100 80GB HBM3, 4, 81559, 0",
+      "probe_repeats": 30,
+      "valid_for_full_model_performance_claim": false
+    },
+    "prefix_cases": {
+      "qwen3_omni": [
+        {
+          "name": "same_media_different_question",
+          "prompt_len": 35,
+          "raw_common_prefix_tokens": 31,
+          "keyed_common_prefix_tokens": 31,
+          "keyed_reuse_ratio": 0.8857,
+          "unsafe_raw_reuse_tokens_avoided": 0
+        },
+        {
+          "name": "different_image_same_shape",
+          "prompt_len": 35,
+          "raw_common_prefix_tokens": 35,
+          "keyed_common_prefix_tokens": 2,
+          "keyed_reuse_ratio": 0.0571,
+          "unsafe_raw_reuse_tokens_avoided": 33
+        },
+        {
+          "name": "different_audio_same_shape",
+          "prompt_len": 35,
+          "raw_common_prefix_tokens": 35,
+          "keyed_common_prefix_tokens": 19,
+          "keyed_reuse_ratio": 0.5429,
+          "unsafe_raw_reuse_tokens_avoided": 16
+        },
+        {
+          "name": "different_video_same_shape",
+          "prompt_len": 26,
+          "raw_common_prefix_tokens": 26,
+          "keyed_common_prefix_tokens": 2,
+          "keyed_reuse_ratio": 0.0769,
+          "unsafe_raw_reuse_tokens_avoided": 24
+        }
+      ],
+      "ming_omni": [
+        {
+          "name": "same_media_different_question",
+          "prompt_len": 35,
+          "raw_common_prefix_tokens": 31,
+          "keyed_common_prefix_tokens": 31,
+          "keyed_reuse_ratio": 0.8857,
+          "unsafe_raw_reuse_tokens_avoided": 0
+        },
+        {
+          "name": "different_image_same_shape",
+          "prompt_len": 35,
+          "raw_common_prefix_tokens": 35,
+          "keyed_common_prefix_tokens": 2,
+          "keyed_reuse_ratio": 0.0571,
+          "unsafe_raw_reuse_tokens_avoided": 33
+        },
+        {
+          "name": "different_audio_same_shape",
+          "prompt_len": 35,
+          "raw_common_prefix_tokens": 35,
+          "keyed_common_prefix_tokens": 19,
+          "keyed_reuse_ratio": 0.5429,
+          "unsafe_raw_reuse_tokens_avoided": 16
+        },
+        {
+          "name": "different_video_same_shape",
+          "prompt_len": 26,
+          "raw_common_prefix_tokens": 26,
+          "keyed_common_prefix_tokens": 2,
+          "keyed_reuse_ratio": 0.0769,
+          "unsafe_raw_reuse_tokens_avoided": 24
+        }
+      ]
+    },
+    "encoder_cache": [
+      {
+        "model": "qwen3_omni",
+        "stage": "image_encoder",
+        "batch_size": 3,
+        "duplicate_requests": 1,
+        "unique_cache_keys": 2,
+        "cold_model_calls_median": 1.0,
+        "warm_model_calls_median": 0.0,
+        "cold_processed_units_median": 8.0,
+        "warm_processed_units_median": 0.0,
+        "cold_ms_median": 3.1452,
+        "warm_ms_median": 0.0229,
+        "warm_speedup": 137.34,
+        "same_batch_duplicate_unit_reduction": 0.3333,
+        "notes": "Synthetic encoder sleeps 3 ms per batched forward; processed_units are visual tokens. The active Qwen3 image path deduplicates same-batch cache keys."
+      },
+      {
+        "model": "qwen3_omni",
+        "stage": "audio_encoder",
+        "batch_size": 3,
+        "duplicate_requests": 1,
+        "unique_cache_keys": 2,
+        "cold_model_calls_median": 1.0,
+        "warm_model_calls_median": 0.0,
+        "cold_processed_units_median": 2.0,
+        "warm_processed_units_median": 0.0,
+        "cold_ms_median": 3.1345,
+        "warm_ms_median": 0.0213,
+        "warm_speedup": 147.16,
+        "same_batch_duplicate_unit_reduction": 0.3333,
+        "notes": "Synthetic encoder sleeps 3 ms per batched forward; processed_units are audio rows. Warm cache hits skip compute, and the active audio batching path now coalesces same-batch duplicate cache keys."
+      }
+    ],
+    "ming_encoder_cache": {
+      "model": "ming_omni",
+      "active_encoder_cache": "wired in sglang_omni/models/ming_omni/stages.py",
+      "media_key_to_radix_cache": "wired in sglang_omni/models/ming_omni/bootstrap.py",
+      "stages": [
+        {
+          "stage": "audio_encoder",
+          "repeated_media_requests": 10,
+          "model_calls": 1,
+          "expected_without_cache_model_calls": 10,
+          "avoidable_encoder_forwards_ratio": 0.9,
+          "first_request_ms": 3.1116,
+          "warm_request_ms_median": 0.0106
+        },
+        {
+          "stage": "image_encoder",
+          "repeated_media_requests": 10,
+          "model_calls": 1,
+          "expected_without_cache_model_calls": 10,
+          "avoidable_encoder_forwards_ratio": 0.9,
+          "first_request_ms": 3.0804,
+          "warm_request_ms_median": 0.0106
+        }
+      ],
+      "notes": "Ming active stages pass cache_key through preprocessing/merge for radix safety and now use StageOutputCache in active audio/image encoder factories. This is a synthetic stage-helper probe, not a full-model run."
+    },
+    "scheduling_simulation": [
+      {
+        "strategy": "fifo",
+        "requests": 5000,
+        "workers": 2,
+        "deadline_miss_rate": 0.0476,
+        "audio_miss_rate": 0.1033,
+        "video_miss_rate": 0.0,
+        "p50_latency_ms": 28.3358,
+        "p95_latency_ms": 112.4192,
+        "p99_latency_ms": 158.5473,
+        "mean_latency_ms": 42.1834
+      },
+      {
+        "strategy": "edf",
+        "requests": 5000,
+        "workers": 2,
+        "deadline_miss_rate": 0.001,
+        "audio_miss_rate": 0.0022,
+        "video_miss_rate": 0.0,
+        "p50_latency_ms": 20.0,
+        "p95_latency_ms": 113.0682,
+        "p99_latency_ms": 211.2878,
+        "mean_latency_ms": 34.3515
+      },
+      {
+        "strategy": "hybrid_slo_cache",
+        "requests": 5000,
+        "workers": 2,
+        "deadline_miss_rate": 0.0002,
+        "audio_miss_rate": 0.0004,
+        "video_miss_rate": 0.0,
+        "p50_latency_ms": 20.0,
+        "p95_latency_ms": 97.8369,
+        "p99_latency_ms": 198.9059,
+        "mean_latency_ms": 33.2316
+      }
+    ]
+  }
+}

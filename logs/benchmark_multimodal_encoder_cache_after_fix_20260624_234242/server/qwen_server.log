@@ -1,0 +1,177 @@
+Failed to import nixl: No module named 'nixl'. NixlRelay will not work.
+2026-06-24 23:55:33,274 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3-Omni-30B-A3B-Instruct/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-06-24 23:55:33,291 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3-Omni-30B-A3B-Instruct/26291f793822fb6be9555850f06dfe95f2d7e695/config.json "HTTP/1.1 200 OK"
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'interleaved', 'mrope_section'}
+2026-06-24 23:55:38,324 [INFO] qwen_vl_utils.vision_process: set VIDEO_TOTAL_PIXELS: 90316800
+2026-06-24 23:55:38,478 [INFO] sglang_omni.pipeline.control_plane: Coordinator control plane started
+2026-06-24 23:55:38,478 [INFO] sglang_omni.pipeline.coordinator: Coordinator started
+2026-06-24 23:55:38,478 [INFO] sglang_omni.pipeline.mp_runner: Configured stage process env defaults: SGLANG_JIT_DEEPGEMM_PRECOMPILE
+2026-06-24 23:55:38,480 [INFO] sglang_omni.pipeline.stage_workers: StageGroup pipeline: spawned 1 process(es) (pids=[3847741])
+Failed to import nixl: No module named 'nixl'. NixlRelay will not work.
+2026-06-24 23:55:39,594 [INFO] stage_workers.pipeline: Building scheduler for preprocessing (tp_rank=0/1) ...
+2026-06-24 23:55:44,691 [INFO] qwen_vl_utils.vision_process: set VIDEO_TOTAL_PIXELS: 90316800
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'interleaved', 'mrope_section'}
+2026-06-24 23:55:45,051 [INFO] stage_workers.pipeline: Set current CUDA device to 0 for stage image_encoder
+2026-06-24 23:55:45,051 [INFO] stage_workers.pipeline: Building scheduler for image_encoder (tp_rank=0/1) ...
+2026-06-24 23:55:45,051 [INFO] stage_workers.pipeline: Acquired GPU startup lock for stage image_encoder: /tmp/sglang_omni_gpu_0_startup.lock
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'interleaved', 'mrope_section'}
+2026-06-24 23:55:45,281 [INFO] httpx: HTTP Request: GET https://huggingface.co/api/models/Qwen/Qwen3-Omni-30B-A3B-Instruct/revision/main "HTTP/1.1 200 OK"
+Fetching 25 files:   0%|          | 0/25 [00:00<?, ?it/s]Fetching 25 files: 100%|██████████| 25/25 [00:00<00:00, 9700.06it/s]
+2026-06-24 23:55:45,507 [INFO] sglang_omni.models.qwen3_omni.components.image_encoder: PatchEmbed optimized: Conv3d(3→1152) replaced with Linear(1536→1152)
+2026-06-24 23:55:45,508 [INFO] stage_workers.pipeline: Set current CUDA device to 0 for stage audio_encoder
+2026-06-24 23:55:45,508 [INFO] stage_workers.pipeline: Building scheduler for audio_encoder (tp_rank=0/1) ...
+2026-06-24 23:55:45,508 [INFO] stage_workers.pipeline: Acquired GPU startup lock for stage audio_encoder: /tmp/sglang_omni_gpu_0_startup.lock
+2026-06-24 23:55:46,034 [INFO] stage_workers.pipeline: Building scheduler for mm_aggregate (tp_rank=0/1) ...
+2026-06-24 23:55:46,034 [INFO] stage_workers.pipeline: Set current CUDA device to 0 for stage thinker
+2026-06-24 23:55:46,034 [INFO] stage_workers.pipeline: Building scheduler for thinker (tp_rank=0/1) ...
+2026-06-24 23:55:46,034 [INFO] stage_workers.pipeline: Acquired GPU startup lock for stage thinker: /tmp/sglang_omni_gpu_0_startup.lock
+2026-06-24 23:55:46,140 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3-Omni-30B-A3B-Instruct/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-06-24 23:55:46,155 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3-Omni-30B-A3B-Instruct/26291f793822fb6be9555850f06dfe95f2d7e695/config.json "HTTP/1.1 200 OK"
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'interleaved', 'mrope_section'}
+2026-06-24 23:55:46,311 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3-Omni-30B-A3B-Instruct/resolve/main/generation_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-06-24 23:55:46,326 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3-Omni-30B-A3B-Instruct/26291f793822fb6be9555850f06dfe95f2d7e695/generation_config.json "HTTP/1.1 200 OK"
+2026-06-24 23:55:46,422 [INFO] httpx: HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3-Omni-30B-A3B-Instruct/resolve/main/hf_quant_config.json "HTTP/1.1 404 Not Found"
+2026-06-24 23:55:46,561 [INFO] sglang.srt.server_args: Attention backend not specified. Use fa3 backend by default.
+2026-06-24 23:55:46,663 [INFO] httpx: HTTP Request: GET https://huggingface.co/api/models/Qwen/Qwen3-Omni-30B-A3B-Instruct "HTTP/1.1 200 OK"
+2026-06-24 23:55:46,665 [INFO] sglang_omni.models.qwen3_omni.stages: sglang_ar_startup stage=thinker gpu_id=0 tp_rank=0/1 context_length=8192 total_gpu_memory_fraction=None effective_total_gpu_memory_fraction=None mem_fraction_static=0.785 encoder_mem_reserve=0.05 pre_load_avail_mem=76.2911376953125 pid=3847741 pre_load_process_mem=2.88GiB
+2026-06-24 23:55:47,600 [INFO] sglang_omni.model_runner.model_worker: Configured SGLang backend policy: arch=Qwen3OmniThinkerForCausalLM effective_quantization=None server_quantization=None moe_runner_backend=auto fp8_gemm_backend=auto
+2026-06-24 23:55:48,096 [INFO] sglang.srt.model_executor.model_runner: Init torch distributed begin.
+2026-06-24 23:55:48,111 [INFO] sglang.srt.model_executor.model_runner: Init torch distributed ends. elapsed=0.02 s, mem usage=0.09 GB
+2026-06-24 23:55:48,115 [INFO] sglang.srt.model_executor.model_runner: Load weight begin. avail mem=76.13 GB
+2026-06-24 23:55:48,237 [INFO] sglang.srt.model_loader.weight_utils: Found local HF snapshot for Qwen/Qwen3-Omni-30B-A3B-Instruct at /root/.cache/huggingface/hub/models--Qwen--Qwen3-Omni-30B-A3B-Instruct/snapshots/26291f793822fb6be9555850f06dfe95f2d7e695; skipping download.
+Multi-thread loading shards:   0% Completed | 0/15 [00:00<?, ?it/s]Multi-thread loading shards:   7% Completed | 1/15 [00:01<00:16,  1.19s/it]Multi-thread loading shards:  13% Completed | 2/15 [00:01<00:12,  1.04it/s]Multi-thread loading shards:  20% Completed | 3/15 [00:02<00:11,  1.08it/s]Multi-thread loading shards:  27% Completed | 4/15 [00:03<00:10,  1.10it/s]Multi-thread loading shards:  33% Completed | 5/15 [00:04<00:09,  1.10it/s]Multi-thread loading shards:  40% Completed | 6/15 [00:05<00:07,  1.13it/s]Multi-thread loading shards:  47% Completed | 7/15 [00:06<00:06,  1.15it/s]Multi-thread loading shards:  53% Completed | 8/15 [00:07<00:06,  1.15it/s]Multi-thread loading shards:  60% Completed | 9/15 [00:08<00:05,  1.16it/s]Multi-thread loading shards:  67% Completed | 10/15 [00:08<00:04,  1.17it/s]Multi-thread loading shards:  73% Completed | 11/15 [00:09<00:03,  1.15it/s]Multi-thread loading shards:  80% Completed | 12/15 [00:10<00:02,  1.15it/s]Multi-thread loading shards:  87% Completed | 13/15 [00:11<00:01,  1.28it/s]Multi-thread loading shards: 100% Completed | 15/15 [00:11<00:00,  1.32it/s]
+2026-06-24 23:55:59,869 [INFO] sglang.srt.model_executor.model_runner: Load weight end. elapsed=11.75 s, type=Qwen3OmniThinkerForCausalLM, avail mem=19.23 GB, mem usage=56.90 GB.
+2026-06-24 23:55:59,871 [INFO] sglang.srt.model_executor.model_runner: Using KV cache dtype: torch.bfloat16
+2026-06-24 23:55:59,882 [INFO] sglang.srt.mem_cache.memory_pool: KV Cache is allocated. #tokens: 31095, K size: 1.42 GB, V size: 1.42 GB
+2026-06-24 23:55:59,882 [INFO] sglang.srt.model_executor.model_runner_kv_cache_mixin: Memory pool end. avail mem=16.23 GB
+2026-06-24 23:55:59,963 [INFO] sglang.srt.model_executor.model_runner: Capture cuda graph begin. This can take up to several minutes. avail mem=16.13 GB
+2026-06-24 23:55:59,963 [INFO] sglang.srt.model_executor.cuda_graph_runner: Capture cuda graph bs [1, 2, 4, 8, 12, 16]
+  0%|          | 0/6 [00:00<?, ?it/s]Capturing batches (bs=16 avail_mem=16.13 GB):   0%|          | 0/6 [00:00<?, ?it/s]2026-06-24 23:56:01,608 [WARNING] sglang.srt.layers.moe.moe_runner.triton_utils.fused_moe_triton_config: Config file not found at /data/.venv/lib/python3.12/site-packages/sglang/srt/layers/moe/moe_runner/triton_utils/configs/triton_3_6_0/E=128,N=768,device_name=NVIDIA_H100_80GB_HBM3.json. Fallback to triton version 3.2.0 and use MoE kernel config from /data/.venv/lib/python3.12/site-packages/sglang/srt/layers/moe/moe_runner/triton_utils/configs/triton_3_2_0/E=128,N=768,device_name=NVIDIA_H100_80GB_HBM3.json. Performance might be sub-optimal!
+2026-06-24 23:56:01,608 [WARNING] sglang.srt.layers.moe.moe_runner.triton_utils.fused_moe_triton_config: Using MoE kernel config with down_moe=False. Performance might be sub-optimal! Config file not found at /data/.venv/lib/python3.12/site-packages/sglang/srt/layers/moe/moe_runner/triton_utils/configs/triton_3_6_0/E=128,N=768,device_name=NVIDIA_H100_80GB_HBM3_down.json, you can create them with https://github.com/sgl-project/sglang/tree/main/benchmark/kernels/fused_moe_triton
+Capturing batches (bs=16 avail_mem=16.13 GB):  17%|█▋        | 1/6 [00:01<00:08,  1.60s/it]Capturing batches (bs=12 avail_mem=16.09 GB):  17%|█▋        | 1/6 [00:01<00:08,  1.60s/it]Capturing batches (bs=12 avail_mem=16.09 GB):  33%|███▎      | 2/6 [00:01<00:03,  1.30it/s]Capturing batches (bs=8 avail_mem=16.09 GB):  33%|███▎      | 2/6 [00:01<00:03,  1.30it/s] Capturing batches (bs=8 avail_mem=16.09 GB):  50%|█████     | 3/6 [00:01<00:01,  2.09it/s]Capturing batches (bs=4 avail_mem=16.09 GB):  50%|█████     | 3/6 [00:01<00:01,  2.09it/s]Capturing batches (bs=4 avail_mem=16.09 GB):  67%|██████▋   | 4/6 [00:02<00:00,  3.03it/s]Capturing batches (bs=2 avail_mem=16.08 GB):  67%|██████▋   | 4/6 [00:02<00:00,  3.03it/s]Capturing batches (bs=2 avail_mem=16.08 GB):  83%|████████▎ | 5/6 [00:02<00:00,  4.03it/s]Capturing batches (bs=1 avail_mem=16.08 GB):  83%|████████▎ | 5/6 [00:02<00:00,  4.03it/s]Capturing batches (bs=1 avail_mem=16.08 GB): 100%|██████████| 6/6 [00:02<00:00,  4.74it/s]Capturing batches (bs=1 avail_mem=16.08 GB): 100%|██████████| 6/6 [00:02<00:00,  2.65it/s]
+2026-06-24 23:56:02,839 [INFO] sglang.srt.model_executor.model_runner: Capture cuda graph end. Time elapsed: 2.88 s. mem usage=0.05 GB. avail mem=16.08 GB.
+2026-06-24 23:56:02,839 [INFO] sglang.srt.model_executor.model_runner: Disable piecewise CUDA graph because --disable-piecewise-cuda-graph is set
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'interleaved', 'mrope_section'}
+2026-06-24 23:56:03,586 [INFO] sglang_omni.models.qwen3_omni.stages: sglang_ar_started stage=thinker gpu_id=0 tp_rank=0/1 context_length=8192 total_gpu_memory_fraction=None effective_total_gpu_memory_fraction=None mem_fraction_static=0.785 pre_load_avail_mem=76.2911376953125 post_load_avail_mem=16.08013916015625 pid=3847741 pre_load_process_mem=2.88GiB post_load_process_mem=63.09GiB
+2026-06-24 23:56:03,586 [INFO] stage_workers.pipeline: Building scheduler for decode (tp_rank=0/1) ...
+[transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'interleaved', 'mrope_section'}
+2026-06-24 23:56:04,335 [INFO] sglang_omni.pipeline.control_plane: Stage preprocessing control plane started
+2026-06-24 23:56:04,335 [INFO] sglang_omni.pipeline.stage.runtime: Stage preprocessing started
+2026-06-24 23:56:04,377 [INFO] sglang_omni.pipeline.control_plane: Stage image_encoder control plane started
+2026-06-24 23:56:04,377 [INFO] sglang_omni.pipeline.stage.runtime: Scheduler thread for stage image_encoder set CUDA device to 0
+2026-06-24 23:56:04,378 [INFO] sglang_omni.pipeline.stage.runtime: Stage image_encoder started
+2026-06-24 23:56:04,378 [INFO] sglang_omni.pipeline.control_plane: Stage audio_encoder control plane started
+2026-06-24 23:56:04,378 [INFO] sglang_omni.pipeline.stage.runtime: Scheduler thread for stage audio_encoder set CUDA device to 0
+2026-06-24 23:56:04,378 [INFO] sglang_omni.pipeline.stage.runtime: Stage audio_encoder started
+2026-06-24 23:56:04,378 [INFO] sglang_omni.pipeline.control_plane: Stage mm_aggregate control plane started
+2026-06-24 23:56:04,378 [INFO] sglang_omni.pipeline.stage.runtime: Stage mm_aggregate started
+2026-06-24 23:56:04,378 [INFO] sglang_omni.pipeline.control_plane: Stage thinker control plane started
+2026-06-24 23:56:04,379 [INFO] sglang_omni.pipeline.stage.runtime: Scheduler thread for stage thinker set CUDA device to 0
+2026-06-24 23:56:04,379 [INFO] sglang_omni.pipeline.stage.runtime: Stage thinker started
+2026-06-24 23:56:04,379 [INFO] sglang_omni.pipeline.control_plane: Stage decode control plane started
+2026-06-24 23:56:04,379 [INFO] sglang_omni.pipeline.stage.runtime: Stage decode started
+2026-06-24 23:56:04,379 [INFO] stage_workers.pipeline: Process pipeline ready with stages=['preprocessing', 'image_encoder', 'audio_encoder', 'mm_aggregate', 'thinker', 'decode']
+2026-06-24 23:56:04,379 [INFO] sglang_omni.pipeline.stage_workers: Process pipeline ready
+2026-06-24 23:56:04,380 [INFO] sglang_omni.pipeline.coordinator: Coordinator registered stage: preprocessing at ipc:///tmp/sglang_omni/qwen-qwen3-omni-30b-a3b-instruct-th4_hlmt/stage_preprocessing.sock
+2026-06-24 23:56:04,380 [INFO] sglang_omni.pipeline.coordinator: Coordinator registered stage: image_encoder at ipc:///tmp/sglang_omni/qwen-qwen3-omni-30b-a3b-instruct-th4_hlmt/stage_image_encoder.sock
+2026-06-24 23:56:04,380 [INFO] sglang_omni.pipeline.coordinator: Coordinator registered stage: audio_encoder at ipc:///tmp/sglang_omni/qwen-qwen3-omni-30b-a3b-instruct-th4_hlmt/stage_audio_encoder.sock
+2026-06-24 23:56:04,380 [INFO] sglang_omni.pipeline.coordinator: Coordinator registered stage: mm_aggregate at ipc:///tmp/sglang_omni/qwen-qwen3-omni-30b-a3b-instruct-th4_hlmt/stage_mm_aggregate.sock
+2026-06-24 23:56:04,380 [INFO] sglang_omni.pipeline.coordinator: Coordinator registered stage: thinker at ipc:///tmp/sglang_omni/qwen-qwen3-omni-30b-a3b-instruct-th4_hlmt/stage_thinker.sock
+2026-06-24 23:56:04,380 [INFO] sglang_omni.pipeline.coordinator: Coordinator registered stage: decode at ipc:///tmp/sglang_omni/qwen-qwen3-omni-30b-a3b-instruct-th4_hlmt/stage_decode.sock
+2026-06-24 23:56:04,380 [INFO] sglang_omni.pipeline.mp_runner: MultiProcessPipelineRunner started: 6 stage(s), 1 process(es)
+2026-06-24 23:56:04,380 [INFO] sglang_omni.serve.launcher: Resolved placement/topology plan: placement={'topology': 'Qwen3OmniPipelineConfig', 'pipeline': 'Qwen/Qwen3-Omni-30B-A3B-Instruct', 'process_groups': {'pipeline': {'stages': ['preprocessing', 'image_encoder', 'audio_encoder', 'mm_aggregate', 'thinker', 'decode'], 'gpu': 0}}, 'tp_process_groups': {}, 'stage_runtime': {'image_encoder': {'gpu': 0, 'total_gpu_memory_fraction': None, 'mem_fraction_static': None}, 'audio_encoder': {'gpu': 0, 'total_gpu_memory_fraction': None, 'mem_fraction_static': None}, 'thinker': {'gpu': 0, 'total_gpu_memory_fraction': None, 'mem_fraction_static': None}}, 'gpus': {0: {'hardware': {'device_id': 0, 'name': 'NVIDIA H100 80GB HBM3', 'total_memory': '79.65GiB'}, 'stages': ['image_encoder', 'audio_encoder', 'thinker'], 'total_gpu_memory_fraction': 0.0, 'missing_fraction_stages': ['audio_encoder', 'image_encoder', 'thinker']}}}
+2026-06-24 23:56:04,380 [INFO] sglang_omni.serve.launcher: Pipeline 'Qwen/Qwen3-Omni-30B-A3B-Instruct' started (1 GPU(s))
+INFO:     Started server process [3847501]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8100 (Press CTRL+C to quit)
+INFO:     127.0.0.1:40004 - "GET /v1/models HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42204 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-06-24 23:56:20,198 [INFO] sglang_omni.pipeline.coordinator: Coordinator submitted req=qwen-audio-afterfix-20260624-234242-cold_concurrent_same_media-3 to preprocessing at ipc:///tmp/sglang_omni/qwen-qwen3-omni-30b-a3b-instruct-th4_hlmt/stage_preprocessing.sock
+INFO:     127.0.0.1:42202 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-06-24 23:56:20,198 [INFO] sglang_omni.pipeline.coordinator: Coordinator submitted req=qwen-audio-afterfix-20260624-234242-cold_concurrent_same_media-1 to preprocessing at ipc:///tmp/sglang_omni/qwen-qwen3-omni-30b-a3b-instruct-th4_hlmt/stage_preprocessing.sock
+INFO:     127.0.0.1:42206 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-06-24 23:56:20,199 [INFO] sglang_omni.pipeline.coordinator: Coordinator submitted req=qwen-audio-afterfix-20260624-234242-cold_concurrent_same_media-2 to preprocessing at ipc:///tmp/sglang_omni/qwen-qwen3-omni-30b-a3b-instruct-th4_hlmt/stage_preprocessing.sock
+INFO:     127.0.0.1:42220 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-06-24 23:56:20,199 [INFO] sglang_omni.pipeline.coordinator: Coordinator submitted req=qwen-audio-afterfix-20260624-234242-cold_concurrent_same_media-0 to preprocessing at ipc:///tmp/sglang_omni/qwen-qwen3-omni-30b-a3b-instruct-th4_hlmt/stage_preprocessing.sock
+2026-06-24 23:56:20,296 [INFO] sglang_omni.models.qwen3_omni.stages: encoder_cache stage=audio_encoder action=miss req=qwen-audio-afterfix-20260624-234242-cold_concurrent_same_media-3 key=audio:1c1a7d88e9...sr=16000 input_bytes=261104
+2026-06-24 23:56:20,296 [INFO] sglang_omni.models.qwen3_omni.stages: encoder_cache stage=audio_encoder action=miss req=qwen-audio-afterfix-20260624-234242-cold_concurrent_same_media-1 key=audio:1c1a7d88e9...sr=16000 input_bytes=261104
+2026-06-24 23:56:20,296 [INFO] sglang_omni.models.qwen3_omni.stages: encoder_cache stage=audio_encoder action=dedup_same_batch req=qwen-audio-afterfix-20260624-234242-cold_concurrent_same_media-1 key=audio:1c1a7d88e9...sr=16000 input_bytes=261104 leader=qwen-audio-afterfix-20260624-234242-cold_concurrent_same_media-3
+2026-06-24 23:56:20,296 [INFO] sglang_omni.models.qwen3_omni.stages: encoder_cache stage=audio_encoder action=miss req=qwen-audio-afterfix-20260624-234242-cold_concurrent_same_media-2 key=audio:1c1a7d88e9...sr=16000 input_bytes=261104
+2026-06-24 23:56:20,296 [INFO] sglang_omni.models.qwen3_omni.stages: encoder_cache stage=audio_encoder action=dedup_same_batch req=qwen-audio-afterfix-20260624-234242-cold_concurrent_same_media-2 key=audio:1c1a7d88e9...sr=16000 input_bytes=261104 leader=qwen-audio-afterfix-20260624-234242-cold_concurrent_same_media-3
+2026-06-24 23:56:20,296 [INFO] sglang_omni.models.qwen3_omni.stages: encoder_cache stage=audio_encoder action=miss req=qwen-audio-afterfix-20260624-234242-cold_concurrent_same_media-0 key=audio:1c1a7d88e9...sr=16000 input_bytes=261104
+2026-06-24 23:56:20,296 [INFO] sglang_omni.models.qwen3_omni.stages: encoder_cache stage=audio_encoder action=dedup_same_batch req=qwen-audio-afterfix-20260624-234242-cold_concurrent_same_media-0 key=audio:1c1a7d88e9...sr=16000 input_bytes=261104 leader=qwen-audio-afterfix-20260624-234242-cold_concurrent_same_media-3
+2026-06-24 23:56:20,498 [INFO] sglang_omni.models.qwen3_omni.stages: encoder_cache stage=audio_encoder action=store req=qwen-audio-afterfix-20260624-234242-cold_concurrent_same_media-3 key=audio:1c1a7d88e9...sr=16000 input_bytes=261104 output_bytes=270352
+2026-06-24 23:56:21,303 [INFO] sglang.srt.observability.scheduler_metrics_mixin: Prefill batch, #new-seq: 3, #new-token: 258, #cached-token: 0, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 14.56
+2026-06-24 23:56:21,338 [INFO] sglang.srt.observability.scheduler_metrics_mixin: Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 85, token usage: 0.00, #running-req: 3, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 28.01
+INFO:     127.0.0.1:42226 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-06-24 23:56:21,404 [INFO] sglang_omni.pipeline.coordinator: Coordinator submitted req=qwen-audio-afterfix-20260624-234242-warm_sequential_same_media-0 to preprocessing at ipc:///tmp/sglang_omni/qwen-qwen3-omni-30b-a3b-instruct-th4_hlmt/stage_preprocessing.sock
+2026-06-24 23:56:21,460 [INFO] sglang_omni.models.qwen3_omni.stages: encoder_cache stage=audio_encoder action=hit req=qwen-audio-afterfix-20260624-234242-warm_sequential_same_media-0 key=audio:1c1a7d88e9...sr=16000 input_bytes=261104 output_bytes=270352
+2026-06-24 23:56:21,497 [INFO] sglang.srt.observability.scheduler_metrics_mixin: Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 85, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 6.30
+INFO:     127.0.0.1:42238 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-06-24 23:56:21,537 [INFO] sglang_omni.pipeline.coordinator: Coordinator submitted req=qwen-audio-afterfix-20260624-234242-warm_sequential_same_media-1 to preprocessing at ipc:///tmp/sglang_omni/qwen-qwen3-omni-30b-a3b-instruct-th4_hlmt/stage_preprocessing.sock
+2026-06-24 23:56:21,593 [INFO] sglang_omni.models.qwen3_omni.stages: encoder_cache stage=audio_encoder action=hit req=qwen-audio-afterfix-20260624-234242-warm_sequential_same_media-1 key=audio:1c1a7d88e9...sr=16000 input_bytes=261104 output_bytes=270352
+2026-06-24 23:56:21,628 [INFO] sglang.srt.observability.scheduler_metrics_mixin: Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 85, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 7.63
+INFO:     127.0.0.1:42244 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-06-24 23:56:21,669 [INFO] sglang_omni.pipeline.coordinator: Coordinator submitted req=qwen-audio-afterfix-20260624-234242-warm_sequential_same_media-2 to preprocessing at ipc:///tmp/sglang_omni/qwen-qwen3-omni-30b-a3b-instruct-th4_hlmt/stage_preprocessing.sock
+2026-06-24 23:56:21,725 [INFO] sglang_omni.models.qwen3_omni.stages: encoder_cache stage=audio_encoder action=hit req=qwen-audio-afterfix-20260624-234242-warm_sequential_same_media-2 key=audio:1c1a7d88e9...sr=16000 input_bytes=261104 output_bytes=270352
+2026-06-24 23:56:21,760 [INFO] sglang.srt.observability.scheduler_metrics_mixin: Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 85, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 7.59
+INFO:     127.0.0.1:42256 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-06-24 23:56:21,801 [INFO] sglang_omni.pipeline.coordinator: Coordinator submitted req=qwen-audio-afterfix-20260624-234242-warm_sequential_same_media-3 to preprocessing at ipc:///tmp/sglang_omni/qwen-qwen3-omni-30b-a3b-instruct-th4_hlmt/stage_preprocessing.sock
+2026-06-24 23:56:21,857 [INFO] sglang_omni.models.qwen3_omni.stages: encoder_cache stage=audio_encoder action=hit req=qwen-audio-afterfix-20260624-234242-warm_sequential_same_media-3 key=audio:1c1a7d88e9...sr=16000 input_bytes=261104 output_bytes=270352
+2026-06-24 23:56:21,893 [INFO] sglang.srt.observability.scheduler_metrics_mixin: Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 85, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 7.50
+INFO:     127.0.0.1:42258 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-06-24 23:56:21,939 [INFO] sglang_omni.pipeline.coordinator: Coordinator submitted req=qwen-audio-afterfix-20260624-234242-single_different_media-0 to preprocessing at ipc:///tmp/sglang_omni/qwen-qwen3-omni-30b-a3b-instruct-th4_hlmt/stage_preprocessing.sock
+2026-06-24 23:56:21,998 [INFO] sglang_omni.models.qwen3_omni.stages: encoder_cache stage=audio_encoder action=miss req=qwen-audio-afterfix-20260624-234242-single_different_media-0 key=audio:7be18bf643...sr=16000 input_bytes=238400
+2026-06-24 23:56:22,048 [INFO] sglang_omni.models.qwen3_omni.stages: encoder_cache stage=audio_encoder action=store req=qwen-audio-afterfix-20260624-234242-single_different_media-0 key=audio:7be18bf643...sr=16000 input_bytes=238400 output_bytes=245776
+2026-06-24 23:56:22,089 [INFO] sglang.srt.observability.scheduler_metrics_mixin: Prefill batch, #new-seq: 1, #new-token: 76, #cached-token: 4, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 388.67
+2026-06-24 23:56:39,495 [INFO] sglang_omni.pipeline.stage.runtime: Stage preprocessing stopped
+2026-06-24 23:56:39,495 [INFO] sglang_omni.pipeline.stage.runtime: Stage image_encoder stopped
+2026-06-24 23:56:39,495 [INFO] sglang_omni.pipeline.stage.runtime: Stage audio_encoder stopped
+2026-06-24 23:56:39,495 [INFO] sglang_omni.pipeline.stage.runtime: Stage mm_aggregate stopped
+2026-06-24 23:56:39,495 [INFO] sglang_omni.pipeline.stage.runtime: Stage thinker stopped
+2026-06-24 23:56:39,495 [INFO] sglang_omni.pipeline.stage.runtime: Stage decode stopped
+INFO:     Shutting down
+Process process-pipeline:
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/sglang_omni/pipeline/stage_workers.py", line 420, in _start_and_run
+    await asyncio.gather(*tasks)
+asyncio.exceptions.CancelledError
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "/usr/lib/python3.12/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/sglang_omni/pipeline/stage_workers.py", line 372, in stage_process_main
+    _run_process(spec, ready_event, log)
+  File "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/sglang_omni/pipeline/stage_workers.py", line 430, in _run_process
+    asyncio.run(_start_and_run())
+  File "/usr/lib/python3.12/asyncio/runners.py", line 194, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/runners.py", line 123, in run
+    raise KeyboardInterrupt()
+KeyboardInterrupt
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [3847501]
+2026-06-24 23:56:39,684 [INFO] sglang_omni.serve.launcher: Shutting down pipeline …
+2026-06-24 23:56:39,684 [INFO] sglang_omni.pipeline.coordinator: Sent shutdown to stage: preprocessing
+2026-06-24 23:56:39,684 [INFO] sglang_omni.pipeline.coordinator: Sent shutdown to stage: image_encoder
+2026-06-24 23:56:39,685 [INFO] sglang_omni.pipeline.coordinator: Sent shutdown to stage: audio_encoder
+2026-06-24 23:56:39,685 [INFO] sglang_omni.pipeline.coordinator: Sent shutdown to stage: mm_aggregate
+2026-06-24 23:56:39,685 [INFO] sglang_omni.pipeline.coordinator: Sent shutdown to stage: thinker
+2026-06-24 23:56:39,685 [INFO] sglang_omni.pipeline.coordinator: Sent shutdown to stage: decode
+[rank0]:[W624 23:56:40.381256302 ProcessGroupNCCL.cpp:1575] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+2026-06-24 23:56:41,791 [INFO] sglang_omni.pipeline.coordinator: Coordinator completion loop cancelled
+2026-06-24 23:56:41,791 [INFO] sglang_omni.pipeline.coordinator: Coordinator stopped
+2026-06-24 23:56:41,792 [INFO] sglang_omni.serve.launcher: Pipeline stopped.

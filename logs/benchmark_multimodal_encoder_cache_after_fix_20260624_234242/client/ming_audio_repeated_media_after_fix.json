@@ -1,0 +1,221 @@
+{
+  "config": {
+    "alt_media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/query_to_cars.wav",
+    "base_url": "http://127.0.0.1:8101",
+    "cold_concurrency": 4,
+    "markdown_output": "logs/benchmark_multimodal_encoder_cache_after_fix_20260624_234242/client/ming_audio_repeated_media_after_fix.md",
+    "max_tokens": 16,
+    "media": "tests/data/query_to_draw.wav",
+    "media_kind": "audio",
+    "model": "ming-omni",
+    "output": "logs/benchmark_multimodal_encoder_cache_after_fix_20260624_234242/client/ming_audio_repeated_media_after_fix.json",
+    "primary_media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/query_to_draw.wav",
+    "prompt": "What is said in the audio? Answer briefly.",
+    "repeats": 4,
+    "request_id_prefix": "ming-audio-afterfix-20260624-234242",
+    "response_chars": 240,
+    "seed": 1234,
+    "stream": true,
+    "temperature": 0.0,
+    "timeout_s": 300.0,
+    "video_fps": null,
+    "video_max_frames": null,
+    "video_max_pixels": null
+  },
+  "requests": [
+    {
+      "completion_tokens": 5,
+      "error": null,
+      "first_delta_seconds": 1.8011903055012226,
+      "first_event_seconds": 1.8011903055012226,
+      "index": 0,
+      "latency_seconds": 2.167521808296442,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/query_to_draw.wav",
+      "ok": true,
+      "phase": "cold_concurrent_same_media",
+      "prompt_tokens": 165,
+      "request_id": "ming-audio-afterfix-20260624-234242-cold_concurrent_same_media-0",
+      "response_text": "a woman is speaking",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": 5,
+      "error": null,
+      "first_delta_seconds": 1.8004076983779669,
+      "first_event_seconds": 1.8004076983779669,
+      "index": 1,
+      "latency_seconds": 2.1666160011664033,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/query_to_draw.wav",
+      "ok": true,
+      "phase": "cold_concurrent_same_media",
+      "prompt_tokens": 165,
+      "request_id": "ming-audio-afterfix-20260624-234242-cold_concurrent_same_media-1",
+      "response_text": "a woman is speaking",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": 5,
+      "error": null,
+      "first_delta_seconds": 1.5356891741976142,
+      "first_event_seconds": 1.5356891741976142,
+      "index": 2,
+      "latency_seconds": 2.165915748104453,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/query_to_draw.wav",
+      "ok": true,
+      "phase": "cold_concurrent_same_media",
+      "prompt_tokens": 165,
+      "request_id": "ming-audio-afterfix-20260624-234242-cold_concurrent_same_media-2",
+      "response_text": "a woman is speaking",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": 5,
+      "error": null,
+      "first_delta_seconds": 1.7997422683984041,
+      "first_event_seconds": 1.7997422683984041,
+      "index": 3,
+      "latency_seconds": 2.168767224997282,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/query_to_draw.wav",
+      "ok": true,
+      "phase": "cold_concurrent_same_media",
+      "prompt_tokens": 165,
+      "request_id": "ming-audio-afterfix-20260624-234242-cold_concurrent_same_media-3",
+      "response_text": "a woman is speaking",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": 9,
+      "error": null,
+      "first_delta_seconds": 0.21479700412601233,
+      "first_event_seconds": 0.21479700412601233,
+      "index": 0,
+      "latency_seconds": 0.2756019430235028,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/query_to_cars.wav",
+      "ok": true,
+      "phase": "single_different_media",
+      "prompt_tokens": 154,
+      "request_id": "ming-audio-afterfix-20260624-234242-single_different_media-0",
+      "response_text": "how many cars are there in the picture",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": 5,
+      "error": null,
+      "first_delta_seconds": 0.22917644027620554,
+      "first_event_seconds": 0.22917644027620554,
+      "index": 0,
+      "latency_seconds": 0.26355013716965914,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/query_to_draw.wav",
+      "ok": true,
+      "phase": "warm_sequential_same_media",
+      "prompt_tokens": 165,
+      "request_id": "ming-audio-afterfix-20260624-234242-warm_sequential_same_media-0",
+      "response_text": "a woman is speaking",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": 5,
+      "error": null,
+      "first_delta_seconds": 0.18200376629829407,
+      "first_event_seconds": 0.18200376629829407,
+      "index": 1,
+      "latency_seconds": 0.21303304377943277,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/query_to_draw.wav",
+      "ok": true,
+      "phase": "warm_sequential_same_media",
+      "prompt_tokens": 165,
+      "request_id": "ming-audio-afterfix-20260624-234242-warm_sequential_same_media-1",
+      "response_text": "a woman is speaking",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": 5,
+      "error": null,
+      "first_delta_seconds": 0.17912568897008896,
+      "first_event_seconds": 0.17912568897008896,
+      "index": 2,
+      "latency_seconds": 0.20964869670569897,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/query_to_draw.wav",
+      "ok": true,
+      "phase": "warm_sequential_same_media",
+      "prompt_tokens": 165,
+      "request_id": "ming-audio-afterfix-20260624-234242-warm_sequential_same_media-2",
+      "response_text": "a woman is speaking",
+      "status_code": 200
+    },
+    {
+      "completion_tokens": 5,
+      "error": null,
+      "first_delta_seconds": 0.1752456622198224,
+      "first_event_seconds": 0.1752456622198224,
+      "index": 3,
+      "latency_seconds": 0.20613331347703934,
+      "media": "/data/sglang-omni-worktrees/feat-omni-multimodal-prefix-cache/tests/data/query_to_draw.wav",
+      "ok": true,
+      "phase": "warm_sequential_same_media",
+      "prompt_tokens": 165,
+      "request_id": "ming-audio-afterfix-20260624-234242-warm_sequential_same_media-3",
+      "response_text": "a woman is speaking",
+      "status_code": 200
+    }
+  ],
+  "summary": {
+    "cold_concurrent_same_media": {
+      "failed": 0,
+      "first_delta_seconds": {
+        "max": 1.8011903055012226,
+        "mean": 1.734257361618802,
+        "min": 1.5356891741976142,
+        "p50": 1.8000749833881855,
+        "p95": 1.8010729144327344
+      },
+      "latency_seconds": {
+        "max": 2.168767224997282,
+        "mean": 2.167205195641145,
+        "min": 2.165915748104453,
+        "p50": 2.1670689047314227,
+        "p95": 2.168580412492156
+      },
+      "requests": 4,
+      "successful": 4
+    },
+    "single_different_media": {
+      "failed": 0,
+      "first_delta_seconds": {
+        "max": 0.21479700412601233,
+        "mean": 0.21479700412601233,
+        "min": 0.21479700412601233,
+        "p50": 0.21479700412601233,
+        "p95": 0.21479700412601233
+      },
+      "latency_seconds": {
+        "max": 0.2756019430235028,
+        "mean": 0.2756019430235028,
+        "min": 0.2756019430235028,
+        "p50": 0.2756019430235028,
+        "p95": 0.2756019430235028
+      },
+      "requests": 1,
+      "successful": 1
+    },
+    "warm_sequential_same_media": {
+      "failed": 0,
+      "first_delta_seconds": {
+        "max": 0.22917644027620554,
+        "mean": 0.19138788944110274,
+        "min": 0.1752456622198224,
+        "p50": 0.1805647276341915,
+        "p95": 0.2221005391795188
+      },
+      "latency_seconds": {
+        "max": 0.26355013716965914,
+        "mean": 0.22309129778295755,
+        "min": 0.20613331347703934,
+        "p50": 0.21134087024256587,
+        "p95": 0.2559725731611252
+      },
+      "requests": 4,
+      "successful": 4
+    }
+  }
+}

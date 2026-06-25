@@ -34,6 +34,12 @@ Raw probe artifacts:
 - `logs/benchmark_multimodal_slo_scheduler_20260624_232102/results/measured_slo_target035/results.json`
 - `logs/benchmark_multimodal_slo_scheduler_20260624_232102/results/measured_slo_target082/results.json`
 - `logs/benchmark_multimodal_slo_scheduler_20260624_232102/results/measured_slo_target035_highcache/results.json`
+- `logs/benchmark_multimodal_encoder_cache_after_fix_20260624_234242/benchmark_summary.md`
+- `logs/benchmark_multimodal_encoder_cache_after_fix_20260624_234242/synthetic/prefix_cache_probe/results.json`
+- `logs/benchmark_multimodal_encoder_cache_after_fix_20260624_234242/client/qwen_audio_repeated_media_after_fix.json`
+- `logs/benchmark_multimodal_encoder_cache_after_fix_20260624_234242/client/ming_audio_repeated_media_after_fix.json`
+- `logs/benchmark_multimodal_encoder_cache_after_fix_20260624_234242/client/ming_image_repeated_media_after_fix.json`
+- `logs/benchmark_multimodal_encoder_cache_after_fix_20260624_234242/client/ming_video_repeated_media_after_fix.json`
 
 Run command:
 
@@ -116,6 +122,35 @@ python scripts/experiments/multimodal_measured_slo_scheduler_probe.py \
   --warmup-requests 10000 \
   --zipf-skew 1.05 \
   --cache-capacity audio=8192,image=4096,video=1024
+python scripts/experiments/multimodal_prefix_cache_probe.py \
+  --output-dir logs/benchmark_multimodal_encoder_cache_after_fix_20260624_234242/synthetic/prefix_cache_probe \
+  --repeats 10
+python scripts/experiments/multimodal_server_repeated_media_probe.py \
+  --base-url http://127.0.0.1:8100 \
+  --model qwen3-omni \
+  --media-kind audio \
+  --media tests/data/query_to_draw.wav \
+  --alt-media tests/data/query_to_cars.wav \
+  --prompt "What is said in the audio? Answer briefly." \
+  --cold-concurrency 4 \
+  --repeats 4 \
+  --stream \
+  --max-tokens 16 \
+  --output logs/benchmark_multimodal_encoder_cache_after_fix_20260624_234242/client/qwen_audio_repeated_media_after_fix.json \
+  --markdown-output logs/benchmark_multimodal_encoder_cache_after_fix_20260624_234242/client/qwen_audio_repeated_media_after_fix.md
+python scripts/experiments/multimodal_server_repeated_media_probe.py \
+  --base-url http://127.0.0.1:8101 \
+  --model ming-omni \
+  --media-kind image \
+  --media docs/_static/image/llada2.0_uni_architecture.png \
+  --alt-media tests/data/cars.jpg \
+  --prompt "Describe the image briefly." \
+  --cold-concurrency 4 \
+  --repeats 4 \
+  --stream \
+  --max-tokens 16 \
+  --output logs/benchmark_multimodal_encoder_cache_after_fix_20260624_234242/client/ming_image_repeated_media_after_fix.json \
+  --markdown-output logs/benchmark_multimodal_encoder_cache_after_fix_20260624_234242/client/ming_image_repeated_media_after_fix.md
 ```
 
 Environment captured by the probe:
@@ -134,6 +169,8 @@ Environment captured by the probe:
 - measured-input SLO scheduler probe started from commit `4b61fcf1`; the
   simulator/report additions are included in the follow-up commit. It is
   CPU-only and uses the committed serving JSON artifacts as measured TTFT inputs
+- after-fix encoder cache probe commit: `59af39b6`; Qwen and Ming serving runs
+  used `SGLANG_OMNI_TRACE_ENCODER_CACHE=1`
 
 ## Current Code Path
 
@@ -179,8 +216,7 @@ Key source evidence:
 - `sglang_omni/models/qwen3_omni/stages.py:373` deduplicates same-batch image
   encoder requests by cache key.
 - `sglang_omni/models/qwen3_omni/stages.py:636` batches audio encoder requests
-  and uses warm cache hits, but does not deduplicate duplicate audio cache keys
-  inside the same cold batch.
+  and now deduplicates duplicate audio cache keys inside the same cold batch.
 
 ### Ming-Omni
 
@@ -222,10 +258,11 @@ Key source evidence:
 - `sglang_omni/models/ming_omni/bootstrap.py:135` hashes media keys into stable
   out-of-vocab pad values and substitutes generic media placeholder token IDs in
   `Req.origin_input_ids`.
-- `sglang_omni/models/ming_omni/stages.py:145` and
-  `sglang_omni/models/ming_omni/stages.py:176` run active encoder factories
-  without `StageOutputCache`; `cache_key` is stripped from model inputs but not
-  used to skip repeated encoder work.
+- `sglang_omni/models/ming_omni/stages.py:207` wraps active encoder payloads
+  with model-local `StageOutputCache` lookup/store logic.
+- `sglang_omni/models/ming_omni/stages.py:310` and
+  `sglang_omni/models/ming_omni/stages.py:334` wire that cache into active
+  audio and image encoder factories.
 
 ## Probe Results
 
@@ -280,6 +317,20 @@ Interpretation:
   requests, current source implies 10 encoder forwards; a Qwen-style
   `StageOutputCache` would reduce that to 1, an avoidable 90% repeated-encoder
   forward ratio under this repeated-media workload.
+
+After commit `59af39b6`, the synthetic probe was rerun with the fixed Qwen audio
+and Ming active encoder paths:
+
+| Model | Stage | Cold calls | Warm calls | Cold processed units | Warm processed units | Warm speedup | Same-batch duplicate reduction |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Qwen3-Omni | image_encoder | 1 | 0 | 8 visual tokens | 0 | 137.34x | 33.33% |
+| Qwen3-Omni | audio_encoder | 1 | 0 | 2 audio rows | 0 | 147.16x | 33.33% |
+| Ming-Omni | audio_encoder | 1 | N/A | 10 repeated requests | N/A | N/A | 90.00% avoidable forwards removed |
+| Ming-Omni | image_encoder | 1 | N/A | 10 repeated requests | N/A | N/A | 90.00% avoidable forwards removed |
+
+The Qwen audio cold batch now computes only the two unique audio keys from the
+3-request synthetic batch. Ming audio/image now compute once for 10 repeated
+payloads in the model-local helper probe.
 
 ### Full-Model Serving Probe
 
@@ -404,6 +455,42 @@ Interpretation:
   `Qwen2VLImageProcessor` lacks `videos=` support, the preprocessor now falls
   back to frame-list processing and reconstructs per-video `video_grid_thw`.
 
+### After-Fix Encoder Cache Serving Probe
+
+Commit `59af39b6` closed the Qwen audio same-batch dedup gap and wired Ming
+active audio/image encoder stages to `StageOutputCache`. The after-fix serving
+run used the same repeated-media client shape as above.
+
+Client timing:
+
+| Model | Media | Phase | Requests | Success | Mean latency s | p50 latency s | Mean first delta s |
+| --- | --- | --- | ---: | ---: | ---: | ---: | ---: |
+| Qwen3-Omni | audio | cold concurrent same media | 4 | 4 | 1.289 | 1.287 | 1.217 |
+| Qwen3-Omni | audio | warm sequential same media | 4 | 4 | 0.134 | 0.133 | 0.106 |
+| Qwen3-Omni | audio | single different media | 1 | 1 | 0.213 | 0.213 | 0.166 |
+| Ming-Omni | audio | cold concurrent same media | 4 | 4 | 2.167 | 2.167 | 1.734 |
+| Ming-Omni | audio | warm sequential same media | 4 | 4 | 0.223 | 0.211 | 0.191 |
+| Ming-Omni | audio | single different media | 1 | 1 | 0.276 | 0.276 | 0.215 |
+| Ming-Omni | image | cold concurrent same media | 4 | 4 | 4.256 | 4.256 | 3.871 |
+| Ming-Omni | image | warm sequential same media | 4 | 4 | 0.679 | 0.678 | 0.558 |
+| Ming-Omni | image | single different media | 1 | 1 | 0.705 | 0.705 | 0.586 |
+| Ming-Omni | video | cold concurrent same media | 4 | 4 | 4.796 | 4.815 | 4.678 |
+| Ming-Omni | video | warm sequential same media | 4 | 4 | 2.219 | 2.209 | 2.101 |
+
+Server-side cache evidence:
+
+| Model | Media | Server evidence after fix |
+| --- | --- | --- |
+| Qwen3-Omni | audio | Cold same-audio group emitted one real store, 3 `dedup_same_batch` records, and later 4 warm hits. The different-audio request emitted a separate miss/store. |
+| Ming-Omni | audio | Cold same-audio group emitted one miss/store followed by 3 hits; warm same-audio emitted 4 hits; different audio emitted a separate miss/store. |
+| Ming-Omni | image | Cold same-image group emitted one miss/store followed by 3 hits; warm same-image emitted 4 hits; different image emitted a separate miss/store. |
+| Ming-Omni | video | Video uses the image encoder path after preprocessing; cold same-video emitted one miss/store followed by hits, and warm same-video emitted hits. Video preprocessing still dominates warm latency. |
+
+This closes the two concrete encoder-cache gaps found by the earlier probes.
+The remaining performance issue for video is upstream preprocessing/decode cost:
+the encoder output is cached, but the repeated video fixture still spends about
+1.3-1.4 s per request in frame extraction before the image encoder cache hit.
+
 ### SLO Scheduling Simulation
 
 The scheduling simulation is deterministic and synthetic. It models 5,000
@@ -502,11 +589,12 @@ The cache part is feasible and already partially implemented:
 - Qwen3-Omni has a working two-level pattern: non-AR encoder output cache plus
   SGLang radix prefix cache made multimodal-safe by content-keyed placeholder
   substitution. The serving probes validate this on real image, audio, and
-  video input paths, with an explicit audio same-batch dedup gap.
-- Ming-Omni has the radix-safety part on the active thinker path, but lacks the
-  non-AR encoder output cache on active encoder stages. The serving probe
-  validates prefix/KV reuse across image, audio, and video, but not
-  encoder-output reuse.
+  video input paths. After commit `59af39b6`, audio same-batch duplicate
+  requests are coalesced before the encoder forward.
+- Ming-Omni has the radix-safety part on the active thinker path and now has
+  active audio/image encoder-output cache reuse. The after-fix serving probe
+  validates prefix/KV reuse plus encoder-output reuse across image, audio, and
+  video-through-image-encoder paths.
 - The media-key approach handles the key correctness problem that would otherwise
   make generic `<imagePatch>` / `<audioPatch>` / `<videoPatch>` placeholders
   unsafe for radix prefix caching.
@@ -526,14 +614,15 @@ The scheduling part is feasible as a next framework layer, but not implemented:
 
 ## Engineering Gaps
 
-1. Ming encoder cache parity.
-   Add `StageOutputCache` to Ming audio/image active encoder factories and keep
-   cache keys contextualized by preprocessing parameters.
+1. Closed: Ming encoder cache parity.
+   `StageOutputCache` is now wired into active Ming audio/image encoder
+   factories. The after-fix serving logs show miss/store/hit traces for audio,
+   image, and video-through-image-encoder requests.
 
-2. Qwen3 audio same-batch dedup.
-   Mirror image-encoder duplicate coalescing in `_batch_audio_encoder_payloads`.
-   The audio serving probe confirmed 4 cold same-audio requests produced 4
-   `audio_encoder` misses and 4 stores before warm hits.
+2. Closed: Qwen3 audio same-batch dedup.
+   `_batch_audio_encoder_payloads` now mirrors image-encoder duplicate
+   coalescing. The after-fix audio serving probe produced one real cold store,
+   three same-batch dedup records, and warm hits.
 
 3. Unified cache identity schema.
    Include model id/revision, modality, preprocessing parameters, encoder
