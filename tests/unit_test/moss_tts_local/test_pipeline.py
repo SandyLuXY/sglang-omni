@@ -440,7 +440,7 @@ def _install_fake_moss_ar_factory(
 ):
     pytest.importorskip("PIL")
 
-    from sglang_omni.models.moss_tts_local import stages
+    from sglang_omni.models.moss_tts_local import request_builders, stages
     from sglang_omni.scheduling import bootstrap as scheduling_bootstrap
     from sglang_omni.scheduling import omni_scheduler, sglang_backend
     from sglang_omni.utils import gpu_memory as gpu_memory_utils
@@ -515,7 +515,7 @@ def _install_fake_moss_ar_factory(
         lambda **kwargs: object(),
     )
     monkeypatch.setattr(
-        stages,
+        request_builders,
         "make_moss_tts_local_scheduler_adapters",
         lambda **kwargs: (object(), object()),
     )

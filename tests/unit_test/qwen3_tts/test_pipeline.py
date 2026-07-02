@@ -1911,6 +1911,7 @@ def test_qwen3_tts_engine_applies_compat_overrides_and_reenables_cuda_graph(
     from transformers.utils import generic
 
     from sglang_omni.models.qwen3_tts import model_runner as model_runner_mod
+    from sglang_omni.models.qwen3_tts import request_builders as request_builders_mod
     from sglang_omni.models.qwen3_tts import stages
     from sglang_omni.models.qwen3_tts.request_builders import (
         clear_qwen3_tts_preprocessing_context,
@@ -1974,7 +1975,7 @@ def test_qwen3_tts_engine_applies_compat_overrides_and_reenables_cuda_graph(
         staticmethod(lambda *args, **kwargs: object()),
     )
     monkeypatch.setattr(
-        stages,
+        request_builders_mod,
         "make_qwen3_tts_scheduler_adapters",
         lambda **kwargs: (lambda payload: payload, lambda data: data),
     )
