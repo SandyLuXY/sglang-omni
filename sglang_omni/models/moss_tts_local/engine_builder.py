@@ -115,6 +115,10 @@ class MossTtsLocalEngineBuilder(TtsEngineBuilder):
         self.model = model_worker.model_runner.model
 
     def post_cuda_graph_setup(self, model: Any, server_args: Any) -> None:
+        # note (luojiaxuan): Also graph the per-frame local-transformer decode
+        # (1 + n_vq micro-steps and 13 seeded sampling passes per frame):
+        # eager it is kernel-launch-bound at ~22 ms/frame independent of batch
+        # size.
         model.init_frame_decode_graphs(list(server_args.cuda_graph_bs))
 
     def make_model_runner(self, model_worker: Any, output_proc: Any) -> Any:
@@ -133,39 +137,11 @@ class MossTtsLocalEngineBuilder(TtsEngineBuilder):
 
         return abort_request
 
-    def make_scheduler(
-        self,
-        *,
-        model_worker: Any,
-        tree_cache: Any,
-        req_to_token_pool: Any,
-        token_to_kv_pool_allocator: Any,
-        server_args: Any,
-        model_config: Any,
-        prefill_manager: Any,
-        decode_manager: Any,
-        model_runner: Any,
-        request_builder: Any,
-        result_adapter: Any,
-    ) -> Any:
-        from sglang_omni.scheduling import omni_scheduler
-
-        return omni_scheduler.OmniScheduler(
-            tp_worker=model_worker,
-            tree_cache=tree_cache,
-            req_to_token_pool=req_to_token_pool,
-            token_to_kv_pool_allocator=token_to_kv_pool_allocator,
-            server_args=server_args,
-            model_config=model_config,
-            prefill_manager=prefill_manager,
-            decode_manager=decode_manager,
-            model_runner=model_runner,
-            request_builder=request_builder,
-            result_adapter=result_adapter,
-            abort_callback=self.make_abort_callback(),
-            enable_async_decode=self.enable_async_decode,
-            async_decode_min_batch_size=self.async_decode_min_batch_size,
-        )
+    def extra_scheduler_kwargs(self) -> dict[str, Any]:
+        return {
+            "enable_async_decode": self.enable_async_decode,
+            "async_decode_min_batch_size": self.async_decode_min_batch_size,
+        }
 
     def post_scheduler_setup(self, scheduler: Any, model_runner: Any) -> None:
         model_runner.set_stream_outbox(scheduler.outbox)

@@ -231,3 +231,88 @@ def test_tts_engine_builder_phase_order_and_override_contract(monkeypatch) -> No
     assert init_graph_calls == [True]
     assert scheduler.kwargs["server_args"].disable_cuda_graph is False
     assert scheduler.kwargs["model_runner"].outbox == "outbox"
+
+
+def test_tts_engine_builder_base_scheduler_preserves_abort_with_extra_kwargs(
+    monkeypatch,
+) -> None:
+    from sglang_omni.scheduling import omni_scheduler
+    from sglang_omni.scheduling.engine_factory import TtsEngineBuilder
+
+    captured_kwargs: dict[str, Any] = {}
+
+    class FakeScheduler:
+        def __init__(self, **kwargs: Any) -> None:
+            captured_kwargs.update(kwargs)
+
+    monkeypatch.setattr(omni_scheduler, "OmniScheduler", FakeScheduler)
+
+    def abort_callback(request_id: str) -> None:
+        del request_id
+
+    class SchedulerKwargsBuilder(TtsEngineBuilder):
+        model_name = "Test TTS"
+        context_length = 123
+
+        def resolve_checkpoint(self, model_path: str) -> str:
+            return model_path
+
+        def generation_defaults(
+            self,
+            *,
+            dtype: str,
+            server_args_overrides: dict[str, Any] | None,
+            **model_kwargs: Any,
+        ) -> dict[str, Any]:
+            del dtype, server_args_overrides, model_kwargs
+            return {}
+
+        def setup_model(
+            self,
+            *,
+            model_worker: Any,
+            checkpoint_dir: str,
+            device: str,
+            gpu_id: int,
+            server_args: Any,
+        ) -> None:
+            del model_worker, checkpoint_dir, device, gpu_id, server_args
+
+        def make_model_runner(self, model_worker: Any, output_proc: Any) -> Any:
+            del output_proc
+            return model_worker
+
+        def make_adapters(self, model: Any) -> tuple[Any, Any]:
+            del model
+            return object(), object()
+
+        def make_abort_callback(self) -> Any | None:
+            return abort_callback
+
+        def extra_scheduler_kwargs(self) -> dict[str, Any]:
+            return {
+                "enable_async_decode": True,
+                "async_decode_min_batch_size": 3,
+            }
+
+    scheduler = SchedulerKwargsBuilder().make_scheduler(
+        model_worker="worker",
+        tree_cache="tree_cache",
+        req_to_token_pool="req_pool",
+        token_to_kv_pool_allocator="kv_pool",
+        server_args="server_args",
+        model_config="model_config",
+        prefill_manager="prefill",
+        decode_manager="decode",
+        model_runner="runner",
+        request_builder="request_builder",
+        result_adapter="result_adapter",
+    )
+
+    assert isinstance(scheduler, FakeScheduler)
+    assert captured_kwargs["abort_callback"] is abort_callback
+    assert captured_kwargs["enable_async_decode"] is True
+    assert captured_kwargs["async_decode_min_batch_size"] == 3
+    assert captured_kwargs["tp_worker"] == "worker"
+    assert captured_kwargs["request_builder"] == "request_builder"
+    assert captured_kwargs["result_adapter"] == "result_adapter"

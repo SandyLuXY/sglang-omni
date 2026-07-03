@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import importlib
 from typing import Any
 
 from sglang_omni.models.qwen3_tts import request_builders
@@ -20,6 +21,11 @@ class Qwen3TtsEngineBuilder(TtsEngineBuilder):
         self.wrapper: Any | None = None
 
     def resolve_checkpoint(self, model_path: str) -> str:
+        qwen3_stages.apply_qwen_tts_transformers_compatibility_patches()
+        qwen_tts = importlib.import_module("qwen_tts")
+        if not hasattr(qwen_tts, "Qwen3TTSModel"):
+            raise ImportError("qwen_tts does not expose Qwen3TTSModel")
+
         return qwen3_stages._resolve_checkpoint(model_path)
 
     def pre_infra_setup(self, checkpoint_dir: str) -> None:

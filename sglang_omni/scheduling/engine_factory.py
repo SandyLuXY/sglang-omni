@@ -181,6 +181,9 @@ class TtsEngineBuilder(ABC):
     def make_abort_callback(self) -> Any | None:
         return None
 
+    def extra_scheduler_kwargs(self) -> dict[str, Any]:
+        return {}
+
     def make_scheduler(
         self,
         *,
@@ -211,6 +214,7 @@ class TtsEngineBuilder(ABC):
             request_builder=request_builder,
             result_adapter=result_adapter,
             abort_callback=self.make_abort_callback(),
+            **self.extra_scheduler_kwargs(),
         )
 
     def post_scheduler_setup(self, scheduler: Any, model_runner: Any) -> None:

@@ -2090,3 +2090,35 @@ def test_qwen3_tts_engine_applies_compat_overrides_and_reenables_cuda_graph(
     assert scheduler.server_args.enable_torch_compile is False
     assert scheduler.server_args.torch_compile_max_bs == 32
     clear_qwen3_tts_preprocessing_context()
+
+
+def test_qwen3_tts_engine_probes_runtime_before_checkpoint_resolution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from sglang_omni.models.qwen3_tts import engine_builder as engine_builder_mod
+    from sglang_omni.models.qwen3_tts import stages
+
+    checkpoint_resolutions: list[str] = []
+
+    def fake_resolve_checkpoint(model_path: str) -> str:
+        checkpoint_resolutions.append(model_path)
+        raise AssertionError("_resolve_checkpoint should not run before qwen_tts probe")
+
+    original_import_module = engine_builder_mod.importlib.import_module
+
+    def fake_import_module(name: str, package: str | None = None):
+        if name == "qwen_tts":
+            raise ImportError("missing qwen_tts")
+        return original_import_module(name, package)
+
+    monkeypatch.setattr(stages, "_resolve_checkpoint", fake_resolve_checkpoint)
+    monkeypatch.setattr(
+        engine_builder_mod.importlib, "import_module", fake_import_module
+    )
+
+    with pytest.raises(ImportError, match="missing qwen_tts"):
+        engine_builder_mod.Qwen3TtsEngineBuilder().resolve_checkpoint(
+            "Qwen/Qwen3-TTS-12Hz-0.6B-Base"
+        )
+
+    assert checkpoint_resolutions == []

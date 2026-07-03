@@ -43,6 +43,10 @@ class HiggsTtsEngineBuilder(TtsEngineBuilder):
         **model_kwargs: Any,
     ) -> dict[str, Any]:
         del dtype, server_args_overrides, model_kwargs
+        # note (luojiaxuan): Radix cache is namespaced per ref-audio via
+        # Req.extra_key (set in build_sglang_higgs_request); shared -100
+        # placeholder prefixes from different ref audios can't cross-contaminate
+        # the KV tree.
         return {
             "max_running_requests": self.max_running_requests,
             "cuda_graph_max_bs": self.cuda_graph_max_bs,
@@ -85,39 +89,11 @@ class HiggsTtsEngineBuilder(TtsEngineBuilder):
             return None
         return self.model.reset_request
 
-    def make_scheduler(
-        self,
-        *,
-        model_worker: Any,
-        tree_cache: Any,
-        req_to_token_pool: Any,
-        token_to_kv_pool_allocator: Any,
-        server_args: Any,
-        model_config: Any,
-        prefill_manager: Any,
-        decode_manager: Any,
-        model_runner: Any,
-        request_builder: Any,
-        result_adapter: Any,
-    ) -> Any:
-        from sglang_omni.scheduling import omni_scheduler
-
-        return omni_scheduler.OmniScheduler(
-            tp_worker=model_worker,
-            tree_cache=tree_cache,
-            req_to_token_pool=req_to_token_pool,
-            token_to_kv_pool_allocator=token_to_kv_pool_allocator,
-            server_args=server_args,
-            model_config=model_config,
-            prefill_manager=prefill_manager,
-            decode_manager=decode_manager,
-            model_runner=model_runner,
-            request_builder=request_builder,
-            result_adapter=result_adapter,
-            abort_callback=self.make_abort_callback(),
-            enable_async_decode=self.enable_async_decode,
-            async_decode_min_batch_size=self.async_decode_min_batch_size,
-        )
+    def extra_scheduler_kwargs(self) -> dict[str, Any]:
+        return {
+            "enable_async_decode": self.enable_async_decode,
+            "async_decode_min_batch_size": self.async_decode_min_batch_size,
+        }
 
     def post_scheduler_setup(self, scheduler: Any, model_runner: Any) -> None:
         model_runner.set_stream_outbox(scheduler.outbox)
