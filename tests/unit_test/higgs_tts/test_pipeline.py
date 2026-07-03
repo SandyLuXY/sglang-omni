@@ -9,6 +9,7 @@ import numpy as np
 import torch
 
 from sglang_omni.models.higgs_tts import stages
+from sglang_omni.models.higgs_tts import utils as higgs_utils
 from sglang_omni.models.higgs_tts.config import HiggsTtsPipelineConfig
 from sglang_omni.models.higgs_tts.model_runner import HiggsTTSModelRunner
 from sglang_omni.models.higgs_tts.payload_types import HiggsTtsState
@@ -105,7 +106,7 @@ def test_higgs_tts_engine_enables_cuda_graph_by_default(monkeypatch) -> None:
     monkeypatch.setattr(
         bootstrap, "create_sglang_infrastructure", fake_create_sglang_infrastructure
     )
-    monkeypatch.setattr(stages, "truncate_rope_to_bf16", lambda model: None)
+    monkeypatch.setattr(higgs_utils, "truncate_rope_to_bf16", lambda model: None)
     monkeypatch.setattr(sglang_backend, "SGLangOutputProcessor", FakeOutputProcessor)
     monkeypatch.setattr(model_runner_mod, "HiggsTTSModelRunner", FakeModelRunner)
 

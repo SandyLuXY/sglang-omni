@@ -8,6 +8,7 @@ from typing import Any
 from sglang_omni.models.higgs_tts import model_runner as model_runner_mod
 from sglang_omni.models.higgs_tts import request_builders
 from sglang_omni.models.higgs_tts import stages as higgs_stages
+from sglang_omni.models.higgs_tts import utils as higgs_utils
 from sglang_omni.scheduling.engine_factory import TtsEngineBuilder
 
 
@@ -65,7 +66,7 @@ class HiggsTtsEngineBuilder(TtsEngineBuilder):
     ) -> None:
         del checkpoint_dir, device, gpu_id, server_args
         self.model = model_worker.model_runner.model
-        higgs_stages.truncate_rope_to_bf16(self.model)
+        higgs_utils.truncate_rope_to_bf16(self.model)
 
     def get_model_buffer_bs(self, model: Any) -> int | None:
         return model.sampler_pool_max_running_requests
