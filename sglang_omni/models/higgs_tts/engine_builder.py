@@ -3,9 +3,9 @@
 
 from __future__ import annotations
 
+import importlib
 from typing import Any
 
-from sglang_omni.models.higgs_tts import model_runner as model_runner_mod
 from sglang_omni.models.higgs_tts import request_builders
 from sglang_omni.models.higgs_tts import stages as higgs_stages
 from sglang_omni.models.higgs_tts import utils as higgs_utils
@@ -39,10 +39,8 @@ class HiggsTtsEngineBuilder(TtsEngineBuilder):
         self,
         *,
         dtype: str,
-        server_args_overrides: dict[str, Any] | None,
-        **model_kwargs: Any,
     ) -> dict[str, Any]:
-        del dtype, server_args_overrides, model_kwargs
+        del dtype
         # note (luojiaxuan): Radix cache is namespaced per ref-audio via
         # Req.extra_key (set in build_sglang_higgs_request); shared -100
         # placeholder prefixes from different ref audios can't cross-contaminate
@@ -76,6 +74,10 @@ class HiggsTtsEngineBuilder(TtsEngineBuilder):
         return model.sampler_pool_max_running_requests
 
     def make_model_runner(self, model_worker: Any, output_proc: Any) -> Any:
+        model_runner_mod = importlib.import_module(
+            "sglang_omni.models.higgs_tts.model_runner"
+        )
+
         return model_runner_mod.HiggsTTSModelRunner(model_worker, output_proc)
 
     def make_adapters(self, model: Any) -> tuple[Any, Any]:
@@ -85,8 +87,7 @@ class HiggsTtsEngineBuilder(TtsEngineBuilder):
         )
 
     def make_abort_callback(self) -> Any | None:
-        if self.model is None:
-            return None
+        assert self.model is not None
         return self.model.reset_request
 
     def extra_scheduler_kwargs(self) -> dict[str, Any]:

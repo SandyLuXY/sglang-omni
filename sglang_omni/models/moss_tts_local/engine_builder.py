@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import importlib
 from typing import Any
 
 from sglang_omni.models.moss_tts_local import request_builders
@@ -41,10 +42,7 @@ class MossTtsLocalEngineBuilder(TtsEngineBuilder):
         self,
         *,
         dtype: str,
-        server_args_overrides: dict[str, Any] | None,
-        **model_kwargs: Any,
     ) -> dict[str, Any]:
-        del server_args_overrides, model_kwargs
         defaults: dict[str, Any] = {
             "max_running_requests": 16,
             "dtype": dtype,
@@ -61,8 +59,7 @@ class MossTtsLocalEngineBuilder(TtsEngineBuilder):
             )
         return defaults
 
-    def adjust_overrides(self, overrides: dict[str, Any], **model_kwargs: Any) -> None:
-        del model_kwargs
+    def adjust_overrides(self, overrides: dict[str, Any]) -> None:
         self.memory_budget = moss_local_stages._apply_colocated_ar_memory_budget(
             overrides,
             total_gpu_memory_fraction=self.total_gpu_memory_fraction,
@@ -122,7 +119,9 @@ class MossTtsLocalEngineBuilder(TtsEngineBuilder):
         model.init_frame_decode_graphs(list(server_args.cuda_graph_bs))
 
     def make_model_runner(self, model_worker: Any, output_proc: Any) -> Any:
-        from sglang_omni.models.moss_tts_local import model_runner as model_runner_mod
+        model_runner_mod = importlib.import_module(
+            "sglang_omni.models.moss_tts_local.model_runner"
+        )
 
         return model_runner_mod.MossTTSLocalModelRunner(model_worker, output_proc)
 
@@ -130,10 +129,12 @@ class MossTtsLocalEngineBuilder(TtsEngineBuilder):
         return request_builders.make_moss_tts_local_scheduler_adapters(model=model)
 
     def make_abort_callback(self) -> Any | None:
+        assert self.model is not None
+        model = self.model
+
         def abort_request(request_id: str) -> None:
             request_builders.cleanup_prepared_moss_tts_local_request(request_id)
-            if self.model is not None:
-                self.model.reset_request(request_id)
+            model.reset_request(request_id)
 
         return abort_request
 

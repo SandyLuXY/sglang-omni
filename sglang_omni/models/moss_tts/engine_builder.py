@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import importlib
 from typing import Any
 
 from sglang_omni.models.moss_tts import request_builders
@@ -22,10 +23,7 @@ class MossTtsEngineBuilder(TtsEngineBuilder):
         self,
         *,
         dtype: str,
-        server_args_overrides: dict[str, Any] | None,
-        **model_kwargs: Any,
     ) -> dict[str, Any]:
-        del server_args_overrides, model_kwargs
         return {
             "max_running_requests": 16,
             "dtype": dtype,
@@ -49,7 +47,9 @@ class MossTtsEngineBuilder(TtsEngineBuilder):
         del model_worker, checkpoint_dir, device, gpu_id, server_args
 
     def make_model_runner(self, model_worker: Any, output_proc: Any) -> Any:
-        from sglang_omni.models.moss_tts import model_runner as model_runner_mod
+        model_runner_mod = importlib.import_module(
+            "sglang_omni.models.moss_tts.model_runner"
+        )
 
         return model_runner_mod.MossTTSModelRunner(model_worker, output_proc)
 

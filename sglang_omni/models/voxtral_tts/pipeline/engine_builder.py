@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import importlib
 from typing import Any
 
 from sglang_omni.models.voxtral_tts import request_builders
@@ -30,10 +31,8 @@ class VoxtralTtsEngineBuilder(TtsEngineBuilder):
         self,
         *,
         dtype: str,
-        server_args_overrides: dict[str, Any] | None,
-        **model_kwargs: Any,
     ) -> dict[str, Any]:
-        del dtype, server_args_overrides, model_kwargs
+        del dtype
         return {
             "max_running_requests": 16,
             "dtype": "bfloat16",
@@ -66,7 +65,9 @@ class VoxtralTtsEngineBuilder(TtsEngineBuilder):
         )
 
     def make_model_runner(self, model_worker: Any, output_proc: Any) -> Any:
-        from sglang_omni.models.voxtral_tts import model_runner as model_runner_mod
+        model_runner_mod = importlib.import_module(
+            "sglang_omni.models.voxtral_tts.model_runner"
+        )
 
         return model_runner_mod.VoxtralTTSModelRunner(model_worker, output_proc)
 

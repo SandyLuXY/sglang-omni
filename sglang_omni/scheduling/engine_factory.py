@@ -27,7 +27,6 @@ class TtsEngineBuilder(ABC):
         gpu_id: int | None = None,
         dtype: str = "bfloat16",
         server_args_overrides: dict[str, Any] | None = None,
-        **model_kwargs: Any,
     ) -> Any:
         from sglang_omni.scheduling import bootstrap as scheduling_bootstrap
         from sglang_omni.scheduling import sglang_backend
@@ -45,13 +44,9 @@ class TtsEngineBuilder(ABC):
 
         overrides = build_generation_batch_overrides(
             server_args_overrides=server_args_overrides,
-            **self.generation_defaults(
-                dtype=dtype,
-                server_args_overrides=server_args_overrides,
-                **model_kwargs,
-            ),
+            **self.generation_defaults(dtype=dtype),
         )
-        self.adjust_overrides(overrides, **model_kwargs)
+        self.adjust_overrides(overrides)
 
         server_args = sglang_backend.build_sglang_server_args(
             checkpoint_dir,
@@ -131,16 +126,14 @@ class TtsEngineBuilder(ABC):
         self,
         *,
         dtype: str,
-        server_args_overrides: dict[str, Any] | None,
-        **model_kwargs: Any,
     ) -> dict[str, Any]:
         raise NotImplementedError
 
     def pre_infra_setup(self, checkpoint_dir: str) -> None:
         del checkpoint_dir
 
-    def adjust_overrides(self, overrides: dict[str, Any], **model_kwargs: Any) -> None:
-        del overrides, model_kwargs
+    def adjust_overrides(self, overrides: dict[str, Any]) -> None:
+        del overrides
 
     def customize_server_args(self, server_args: Any) -> None:
         del server_args

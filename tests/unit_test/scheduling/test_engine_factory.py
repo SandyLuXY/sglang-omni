@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 from types import SimpleNamespace
 from typing import Any
 
@@ -10,6 +11,24 @@ def test_tts_engine_builder_import_is_cpu_only() -> None:
     from sglang_omni.scheduling.engine_factory import TtsEngineBuilder
 
     assert TtsEngineBuilder.__name__ == "TtsEngineBuilder"
+
+
+def test_tts_engine_builder_hook_contract_is_narrow() -> None:
+    from sglang_omni.scheduling.engine_factory import TtsEngineBuilder
+
+    build_signature = inspect.signature(TtsEngineBuilder.build)
+    assert not any(
+        param.kind is inspect.Parameter.VAR_KEYWORD
+        for param in build_signature.parameters.values()
+    )
+
+    generation_defaults_signature = inspect.signature(
+        TtsEngineBuilder.generation_defaults
+    )
+    assert list(generation_defaults_signature.parameters) == ["self", "dtype"]
+
+    adjust_overrides_signature = inspect.signature(TtsEngineBuilder.adjust_overrides)
+    assert list(adjust_overrides_signature.parameters) == ["self", "overrides"]
 
 
 def test_tts_engine_builder_phase_order_and_override_contract(monkeypatch) -> None:
@@ -112,13 +131,9 @@ def test_tts_engine_builder_phase_order_and_override_contract(monkeypatch) -> No
             self,
             *,
             dtype: str,
-            server_args_overrides: dict[str, Any] | None,
-            **model_kwargs: Any,
         ) -> dict[str, Any]:
             events.append("generation_defaults")
             assert dtype == "bfloat16"
-            assert server_args_overrides is not None
-            assert model_kwargs == {}
             return {
                 "max_running_requests": 4,
                 "cuda_graph_max_bs": 4,
@@ -129,12 +144,7 @@ def test_tts_engine_builder_phase_order_and_override_contract(monkeypatch) -> No
                 "mem_fraction_static": 0.5,
             }
 
-        def adjust_overrides(
-            self,
-            overrides: dict[str, Any],
-            **model_kwargs: Any,
-        ) -> None:
-            del model_kwargs
+        def adjust_overrides(self, overrides: dict[str, Any]) -> None:
             events.append("adjust_overrides")
             assert overrides["mem_fraction_static"] == 0.7
 
@@ -261,10 +271,8 @@ def test_tts_engine_builder_base_scheduler_preserves_abort_with_extra_kwargs(
             self,
             *,
             dtype: str,
-            server_args_overrides: dict[str, Any] | None,
-            **model_kwargs: Any,
         ) -> dict[str, Any]:
-            del dtype, server_args_overrides, model_kwargs
+            del dtype
             return {}
 
         def setup_model(

@@ -40,10 +40,8 @@ class FishS2ProEngineBuilder(TtsEngineBuilder):
         self,
         *,
         dtype: str,
-        server_args_overrides: dict[str, Any] | None,
-        **model_kwargs: Any,
     ) -> dict[str, Any]:
-        del dtype, server_args_overrides, model_kwargs
+        del dtype
         return {
             "max_running_requests": 64,
             "disable_cuda_graph": False,

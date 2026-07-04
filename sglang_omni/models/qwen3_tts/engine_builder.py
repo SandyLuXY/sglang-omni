@@ -37,10 +37,7 @@ class Qwen3TtsEngineBuilder(TtsEngineBuilder):
         self,
         *,
         dtype: str,
-        server_args_overrides: dict[str, Any] | None,
-        **model_kwargs: Any,
     ) -> dict[str, Any]:
-        del server_args_overrides, model_kwargs
         return {
             "max_running_requests": 16,
             "cuda_graph_max_bs": 32,
@@ -98,7 +95,9 @@ class Qwen3TtsEngineBuilder(TtsEngineBuilder):
             server_args.enable_torch_compile = False
 
     def make_model_runner(self, model_worker: Any, output_proc: Any) -> Any:
-        from sglang_omni.models.qwen3_tts import model_runner as model_runner_mod
+        model_runner_mod = importlib.import_module(
+            "sglang_omni.models.qwen3_tts.model_runner"
+        )
 
         return model_runner_mod.Qwen3TTSModelRunner(model_worker, output_proc)
 

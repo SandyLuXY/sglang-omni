@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import numpy as np
+import pytest
 import torch
 
 from sglang_omni.models.higgs_tts import stages
@@ -151,6 +152,28 @@ def test_higgs_tts_engine_enables_cuda_graph_by_default(monkeypatch) -> None:
         captured["stream_outbox"]
         is captured["scheduler_kwargs"]["model_runner"]._outbox
     )
+
+
+def test_higgs_tts_engine_abort_callback_requires_model() -> None:
+    from sglang_omni.models.higgs_tts.engine_builder import HiggsTtsEngineBuilder
+
+    builder = HiggsTtsEngineBuilder(
+        max_new_tokens=2048,
+        max_running_requests=64,
+        cuda_graph_max_bs=64,
+        enable_async_decode=False,
+        async_decode_min_batch_size=2,
+    )
+
+    with pytest.raises(AssertionError):
+        builder.make_abort_callback()
+
+    reset_calls: list[str] = []
+    builder.model = SimpleNamespace(reset_request=reset_calls.append)
+    abort_callback = builder.make_abort_callback()
+    abort_callback("req-1")
+
+    assert reset_calls == ["req-1"]
 
 
 def test_higgs_reference_code_cache_key_round_trip() -> None:
