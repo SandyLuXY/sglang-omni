@@ -267,32 +267,7 @@ def test_moss_tts_talker_torch_compile_cli_override_targets_tts_engine() -> None
     assert server_args_overrides["torch_compile_max_bs"] == 4
 
 
-def test_moss_tts_state_round_trip_keeps_tensors_native() -> None:
-    codes = torch.tensor([[1, 2], [3, 4]], dtype=torch.long)
-    state = MossTTSState(
-        text="hello",
-        ref_audio="ref.wav",
-        ref_text="reference",
-        language="en",
-        instructions="warm",
-        token_count=180,
-        generation_kwargs={"max_new_tokens": 64},
-        delayed_audio_codes=codes,
-        assistant_start_length=2,
-    )
-    restored = MossTTSState.from_dict(state.to_dict())
-
-    assert restored.text == "hello"
-    assert restored.ref_audio == "ref.wav"
-    assert restored.ref_text == "reference"
-    assert restored.language == "en"
-    assert restored.instructions == "warm"
-    assert restored.token_count == 180
-    assert torch.equal(restored.delayed_audio_codes, codes)
-    assert restored.assistant_start_length == 2
-
-
-def test_moss_tts_vocoder_uses_batch_base_path(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_moss_tts_vocoder_decodes_segments_and_stores_results() -> None:
     from sglang_omni.models.moss_tts import stages
 
     decoded_segments: list[list[list[int]]] = []
@@ -305,18 +280,7 @@ def test_moss_tts_vocoder_uses_batch_base_path(monkeypatch: pytest.MonkeyPatch) 
             offset = float(len(decoded_segments) * 10)
             return [torch.tensor([offset, offset + 1], dtype=torch.float32)]
 
-    monkeypatch.setattr(
-        stages,
-        "_load_moss_processor",
-        lambda *args, **kwargs: FakeProcessor(),
-    )
-
-    scheduler = stages.create_vocoder_executor(
-        "model",
-        device="cpu",
-        max_batch_size=2,
-        max_batch_wait_ms=4,
-    )
+    vocoder = stages._MossTTSVocoder(FakeProcessor(), "cpu")
     first = make_payload(inputs="first")
     first.data = MossTTSState(
         delayed_audio_codes=torch.tensor(
@@ -344,10 +308,14 @@ def test_moss_tts_vocoder_uses_batch_base_path(monkeypatch: pytest.MonkeyPatch) 
         ),
     ).to_dict()
 
-    results = asyncio.run(scheduler._batch_fn([first, second]))
+    payloads = [first, second]
+    items = [vocoder.prepare_item(payload) for payload in payloads]
+    decoded = asyncio.run(vocoder.decode_batch(items))
+    results = [
+        vocoder.store_result(payload, state, wav, sample_rate)
+        for payload, (state, _), (wav, sample_rate) in zip(payloads, items, decoded)
+    ]
 
-    assert scheduler._max_batch_size == 2
-    assert scheduler._max_batch_wait_s == pytest.approx(0.004)
     assert decoded_segments == [
         [[1, 3], [2, 4]],
         [[5, 7], [6, 8]],

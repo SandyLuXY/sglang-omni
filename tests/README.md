@@ -106,7 +106,8 @@ tests/
     │   ├── test_engine_factory.py
     │   ├── test_pipeline_state.py
     │   ├── test_reference_encoder.py
-    │   └── test_streaming_vocoder.py
+    │   ├── test_streaming_vocoder.py
+    │   └── test_vocoder_base.py
     ├── fishaudio_s2_pro/
     │   ├── test_pipeline.py
     │   ├── test_streaming_vocoder.py
@@ -310,9 +311,12 @@ that happened to contain an older version of the test.
 - `unit_test/models/`: Model registry and cross-model contract tests:
   - static TTS `ModelCapabilities` declarations, registry lookup, aliases, and
     launcher startup logging.
-- `unit_test/scheduling/`: Shared scheduling-service unit tests:
-  - `ReferenceEncodeService` cache, same-key single-flight, timeout, failure,
-    and revalidation semantics.
+- `unit_test/scheduling/`: Shared scheduler and TTS service contracts:
+  - TTS engine builder phase ordering and override hooks
+  - pipeline state serialization across supported TTS models
+  - reference-encode cache, single-flight, capacity, and failure behavior
+  - non-streaming batch vocoder hook ordering, batching, and error behavior
+  - streaming vocoder registry, coalescing, lifecycle, and failure behavior.
 - `unit_test/qwen3_asr/`: Qwen3-ASR unit tests:
   - pipeline config and stage factory concurrency defaults
   - single-source audio token length formula used by both processor and
