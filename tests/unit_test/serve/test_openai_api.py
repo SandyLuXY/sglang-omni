@@ -1453,6 +1453,25 @@ def test_transcription_endpoint_maps_max_new_tokens_error_to_400() -> None:
     assert "max_new_tokens must be" in response.json()["detail"]
 
 
+def test_transcription_endpoint_maps_unsupported_language_error_to_400() -> None:
+    bad_request_error = "Unsupported language: 'Klingon'"
+    client = TestClient(
+        create_app(
+            _fault_client("qwen3-omni", error=bad_request_error),
+            model_name="qwen3-omni",
+        )
+    )
+
+    response = client.post(
+        "/v1/audio/transcriptions",
+        data={"model": "qwen3-omni", "language": "Klingon"},
+        files={"file": ("sample.wav", b"RIFF", "audio/wav")},
+    )
+
+    assert response.status_code == 400
+    assert "Unsupported language:" in response.json()["detail"]
+
+
 def test_transcription_endpoint_passes_explicit_max_new_tokens() -> None:
     transcription_client = SuccessfulTranscriptionClient()
     client = TestClient(
