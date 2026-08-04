@@ -115,13 +115,19 @@ def test_qwen3_asr_preserves_chinese_compatibility_aliases(language: str) -> Non
 
 
 @pytest.mark.parametrize(
-    ("language", "expected_name"),
-    [("en", "English"), ("es", "Spanish"), ("fReNcH", "French")],
+    ("language", "expected_name", "expected_language"),
+    [
+        (None, "English", "en"),
+        ("en", "English", "en"),
+        ("es", "Spanish", "es"),
+        ("fReNcH", "French", "fReNcH"),
+    ],
 )
 def test_qwen3_asr_request_builder_uses_canonical_language_prompt(
     monkeypatch,
-    language: str,
+    language: str | None,
     expected_name: str,
+    expected_language: str,
 ) -> None:
     tokenizer = _FakeTokenizer()
     feature_extractor = lambda *args, **kwargs: SimpleNamespace(
@@ -142,7 +148,7 @@ def test_qwen3_asr_request_builder_uses_canonical_language_prompt(
         request_id="req-language",
         request=OmniRequest(
             inputs={"audio_bytes": b"wav"},
-            params={"language": language},
+            params={} if language is None else {"language": language},
         ),
         data={},
     )
@@ -150,11 +156,21 @@ def test_qwen3_asr_request_builder_uses_canonical_language_prompt(
     data = request_builder(payload)
 
     assert tokenizer.call_texts[-1].endswith(f"language {expected_name}<asr_text>")
-    assert data.language == language
+    assert data.language == expected_language
 
 
-def test_qwen3_asr_rejects_unsupported_language_before_loading_audio(
+@pytest.mark.parametrize(
+    ("language", "error_match"),
+    [
+        ("", "language hint is empty.*supported language code"),
+        ("   ", "language hint is empty.*supported language code"),
+        ("Klingon", "Unsupported language: 'Klingon'.*supported language code"),
+    ],
+)
+def test_qwen3_asr_rejects_explicit_unsupported_language_before_loading_audio(
     monkeypatch,
+    language: str,
+    error_match: str,
 ) -> None:
     monkeypatch.setattr(
         transcription,
@@ -172,12 +188,12 @@ def test_qwen3_asr_rejects_unsupported_language_before_loading_audio(
         request_id="req-unsupported-language",
         request=OmniRequest(
             inputs={"audio_bytes": b"wav"},
-            params={"language": "Klingon"},
+            params={"language": language},
         ),
         data={},
     )
 
-    with pytest.raises(ValueError, match="Unsupported language: 'Klingon'"):
+    with pytest.raises(ValueError, match=error_match):
         request_builder(payload)
 
 

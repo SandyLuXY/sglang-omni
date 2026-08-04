@@ -121,7 +121,8 @@ def make_qwen3_asr_scheduler_adapters(
 
     def request_builder(payload: StagePayload) -> Qwen3ASRRequestData:
         params = payload.request.params or {}
-        requested_language = str(params.get("language") or "en")
+        language = params.get("language")
+        requested_language = "en" if language is None else str(language)
         forced_language = resolve_language(requested_language)
         prepared = prepare_audio(
             payload, source_name="Qwen3-ASR", target_sample_rate=_SAMPLE_RATE

@@ -49,11 +49,13 @@ def resolve_language(language: str) -> str:
 
     value = str(language).strip()
     if not value:
-        raise ValueError("Unsupported language: the language hint is empty")
+        raise ValueError(
+            "Unsupported language: the language hint is empty. Use a supported "
+            f"language code ({', '.join(sorted(LANGUAGE_CODE_TO_NAME))}) or "
+            "canonical name."
+        )
 
     normalized = value.casefold()
-    # Preserve the historical ``cn`` and regional ``zh-*`` inputs while using
-    # the upstream ``zh`` canonical code for new requests.
     if normalized == "cn" or normalized.startswith(("zh-", "zh_")):
         return "Chinese"
 
