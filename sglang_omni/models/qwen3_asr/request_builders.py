@@ -30,7 +30,11 @@ from sglang.srt.sampling.sampling_params import SamplingParams
 
 from sglang_omni.preprocessing.transcription import prepare_audio
 from sglang_omni.proto import StagePayload
+from sglang_omni.scheduling.messages import OutgoingMessage
 from sglang_omni.scheduling.sglang_backend import SGLangARRequestData
+from sglang_omni.scheduling.token_text_streaming import (
+    make_token_text_stream_output_builder,
+)
 
 from .audio_lengths import qwen3_asr_num_audio_tokens
 from .languages import resolve_language
@@ -288,7 +292,43 @@ def make_qwen3_asr_scheduler_adapters(
     return request_builder, result_adapter
 
 
+def make_qwen3_asr_stream_output_builder(
+    tokenizer: Any,
+    eos_token_id: int | None = None,
+    min_emit_interval_s: float = 0.0,
+) -> Callable[[str, Any, Any], list[OutgoingMessage]]:
+    tokenizer_eos = tokenizer.eos_token_id
+    resolved_eos = (
+        eos_token_id
+        if eos_token_id is not None
+        else (int(tokenizer_eos) if tokenizer_eos is not None else None)
+    )
+    # note (xinyu): the request prompt ends with <asr_text>, so sampled tokens
+    # are transcript-only; the result adapter's marker removal is defensive.
+    return make_token_text_stream_output_builder(
+        decode_fn=lambda ids: _decode_token_ids(
+            tokenizer, ids, skip_special_tokens=True
+        ),
+        build_message_data=lambda delta: {
+            "text": delta,
+            "modality": "text",
+            "stage_name": "asr",
+        },
+        build_message_metadata=lambda token_id: {
+            "modality": "text",
+            "token_id": token_id,
+        },
+        pending_ids_attr="_qwen3_asr_stream_pending_ids",
+        last_emit_attr="_qwen3_asr_stream_last_emit_t",
+        eos_token_id=resolved_eos,
+        min_emit_interval_s=min_emit_interval_s,
+        allow_terminal_flush=True,
+        emit_trailing_replacement_on_terminal=True,
+    )
+
+
 __all__ = [
     "Qwen3ASRRequestData",
     "make_qwen3_asr_scheduler_adapters",
+    "make_qwen3_asr_stream_output_builder",
 ]

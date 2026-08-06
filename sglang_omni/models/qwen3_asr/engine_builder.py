@@ -34,6 +34,7 @@ class Qwen3ASREngineBuilder(AsrEngineBuilder):
         mm_attention_backend: str | None,
         request_build_max_workers: int,
         request_build_max_pending: int | None,
+        stream_emit_interval_s: float,
         enable_pre_lm_encoder: bool = True,
         pre_lm_cache_max_entries: int = 4096,
         pre_lm_cache_size_bytes: int = 2 * 1024**3,
@@ -58,6 +59,7 @@ class Qwen3ASREngineBuilder(AsrEngineBuilder):
         self.mm_attention_backend = mm_attention_backend
         self.request_build_max_workers = request_build_max_workers
         self.request_build_max_pending = request_build_max_pending
+        self.stream_emit_interval_s = stream_emit_interval_s
         self.enable_pre_lm_encoder = enable_pre_lm_encoder
         self.pre_lm_cache_max_entries = pre_lm_cache_max_entries
         self.pre_lm_cache_size_bytes = pre_lm_cache_size_bytes
@@ -150,6 +152,10 @@ class Qwen3ASREngineBuilder(AsrEngineBuilder):
 
     def extra_scheduler_kwargs(self) -> dict[str, Any]:
         return {
+            "stream_output_builder": request_builders.make_qwen3_asr_stream_output_builder(
+                tokenizer=self.tokenizer,
+                min_emit_interval_s=self.stream_emit_interval_s,
+            ),
             "enable_async_decode": self.enable_async_decode,
             "async_decode_min_batch_size": self.async_decode_min_batch_size,
             "request_build_max_workers": self.request_build_max_workers,

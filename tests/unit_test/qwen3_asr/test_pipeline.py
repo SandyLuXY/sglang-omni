@@ -49,6 +49,7 @@ def test_qwen3_asr_stage_default_allows_32_running_requests() -> None:
     assert signature.parameters["max_running_requests"].default == 32
     assert signature.parameters["request_build_max_workers"].default == 8
     assert signature.parameters["request_build_max_pending"].default == 32
+    assert signature.parameters["stream_emit_interval_s"].default == 0.05
     assert "request_build_max_backlog" not in signature.parameters
 
 
@@ -109,11 +110,14 @@ def test_qwen3_asr_stage_default_enables_async_decode() -> None:
 
 def test_qwen3_asr_threads_explicit_cuda_graph_bs(monkeypatch) -> None:
     build_kwargs: dict[str, object] = {}
+    tokenizer = object()
+    stream_output_builder = object()
+    stream_builder_calls: list[dict[str, object]] = []
 
     monkeypatch.setattr(
         qwen3_asr_builder.AutoTokenizer,
         "from_pretrained",
-        lambda *args, **kwargs: object(),
+        lambda *args, **kwargs: tokenizer,
     )
     monkeypatch.setattr(
         qwen3_asr_builder.AutoFeatureExtractor,
@@ -141,6 +145,11 @@ def test_qwen3_asr_threads_explicit_cuda_graph_bs(monkeypatch) -> None:
         request_builders,
         "make_qwen3_asr_scheduler_adapters",
         lambda **kwargs: (object(), object()),
+    )
+    monkeypatch.setattr(
+        request_builders,
+        "make_qwen3_asr_stream_output_builder",
+        lambda **kwargs: stream_builder_calls.append(kwargs) or stream_output_builder,
     )
     monkeypatch.setattr(
         sglang_backend,
@@ -194,6 +203,7 @@ def test_qwen3_asr_threads_explicit_cuda_graph_bs(monkeypatch) -> None:
         "dummy",
         enable_async_decode=False,
         async_decode_min_batch_size=4,
+        stream_emit_interval_s=0.125,
     )
 
     assert build_kwargs["cuda_graph_max_bs"] == 32
@@ -201,3 +211,7 @@ def test_qwen3_asr_threads_explicit_cuda_graph_bs(monkeypatch) -> None:
     assert scheduler.enable_async_decode is False
     assert scheduler.async_decode_min_batch_size == 4
     assert scheduler.shutdown_callback is fake_encoder_service.close
+    assert scheduler.stream_output_builder is stream_output_builder
+    assert stream_builder_calls == [
+        {"tokenizer": tokenizer, "min_emit_interval_s": 0.125}
+    ]
