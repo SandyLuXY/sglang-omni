@@ -6,7 +6,9 @@ from __future__ import annotations
 import hashlib
 import io
 import os
+import threading
 from collections.abc import Mapping
+from functools import lru_cache
 from typing import Any
 from urllib.parse import unquote, urlparse
 
@@ -17,6 +19,35 @@ import torch
 import torchaudio
 
 _DEFAULT_REQUEST_TIMEOUT = 5
+_CPU_RESAMPLER_CACHE_SIZE = 32
+_CPU_RESAMPLER_CACHE_LOCK = threading.Lock()
+
+
+@lru_cache(maxsize=_CPU_RESAMPLER_CACHE_SIZE)
+def _create_cpu_resampler(
+    source_sample_rate: int, target_sample_rate: int
+) -> torchaudio.transforms.Resample:
+    return torchaudio.transforms.Resample(source_sample_rate, target_sample_rate)
+
+
+def _resample_cpu_audio(
+    audio: torch.Tensor,
+    source_sample_rate: int,
+    target_sample_rate: int,
+    resample_kwargs: Mapping[str, Any] | None = None,
+) -> torch.Tensor:
+    if resample_kwargs:
+        return torchaudio.functional.resample(
+            audio,
+            source_sample_rate,
+            target_sample_rate,
+            **dict(resample_kwargs),
+        )
+
+    # Serialize cache misses so concurrent first requests build one sinc kernel.
+    with _CPU_RESAMPLER_CACHE_LOCK:
+        resampler = _create_cpu_resampler(source_sample_rate, target_sample_rate)
+    return resampler(audio)
 
 
 def _is_riff_wav(data: bytes) -> bool:
@@ -42,11 +73,11 @@ def _try_fast_wav_decode(
     if sample_rate == target_sample_rate:
         return audio
 
-    resampled = torchaudio.functional.resample(
+    resampled = _resample_cpu_audio(
         torch.from_numpy(audio),
         sample_rate,
         target_sample_rate,
-        **dict(resample_kwargs or {}),
+        resample_kwargs,
     )
     return resampled.numpy()
 
@@ -122,11 +153,11 @@ def load_audio(
         trimmed, _ = librosa.effects.trim(audio.numpy(), top_db=trim_top_db)
         audio = torch.from_numpy(trimmed)
     if sample_rate != target_sample_rate:
-        audio = torchaudio.functional.resample(
+        audio = _resample_cpu_audio(
             audio,
             int(sample_rate),
             target_sample_rate,
-            **dict(resample_kwargs or {}),
+            resample_kwargs,
         )
     if mono:
         audio = audio.squeeze(0)

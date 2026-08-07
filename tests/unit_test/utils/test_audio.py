@@ -4,14 +4,25 @@ from __future__ import annotations
 
 import io
 import struct
+import threading
+import time
 import wave
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 import pybase64
 import pytest
+import torch
 
 from sglang_omni.utils import audio
 from sglang_omni.utils.audio import load_audio
+
+
+@pytest.fixture
+def clear_cpu_resampler_cache():
+    audio._create_cpu_resampler.cache_clear()
+    yield
+    audio._create_cpu_resampler.cache_clear()
 
 
 def _wav_bytes(
@@ -210,6 +221,108 @@ def test_load_audio_fast_path_resamples(monkeypatch) -> None:
     samples = load_audio(_sine_wav_bytes(sample_rate=48000))
 
     assert samples.shape == (1600,)
+
+
+def test_load_audio_reuses_resampler_across_fast_and_generic_paths(
+    monkeypatch, clear_cpu_resampler_cache
+) -> None:
+    wav = _sine_wav_bytes(sample_rate=48000)
+    real_resample = audio.torchaudio.functional.resample
+    constructed = []
+
+    class FakeResampler:
+        def __init__(self, source_sample_rate: int, target_sample_rate: int) -> None:
+            constructed.append((source_sample_rate, target_sample_rate))
+            self.source_sample_rate = source_sample_rate
+            self.target_sample_rate = target_sample_rate
+
+        def __call__(self, waveform):
+            return real_resample(
+                waveform, self.source_sample_rate, self.target_sample_rate
+            )
+
+    monkeypatch.setattr(audio.torchaudio.transforms, "Resample", FakeResampler)
+
+    fast = load_audio(wav)
+    monkeypatch.setattr(audio, "_is_riff_wav", lambda data: False)
+    generic = load_audio(wav)
+
+    assert constructed == [(48000, 16000)]
+    np.testing.assert_allclose(fast, generic, atol=1e-6)
+
+
+def test_cpu_resampler_cache_separates_sample_rate_pairs(
+    monkeypatch, clear_cpu_resampler_cache
+) -> None:
+    real_resampler = audio.torchaudio.transforms.Resample
+    constructed = []
+
+    def counting_resampler(source_sample_rate: int, target_sample_rate: int):
+        constructed.append((source_sample_rate, target_sample_rate))
+        return real_resampler(source_sample_rate, target_sample_rate)
+
+    monkeypatch.setattr(audio.torchaudio.transforms, "Resample", counting_resampler)
+
+    load_audio(_sine_wav_bytes(sample_rate=48000), target_sample_rate=16000)
+    load_audio(_sine_wav_bytes(sample_rate=48000), target_sample_rate=8000)
+
+    assert constructed == [(48000, 16000), (48000, 8000)]
+
+
+def test_cpu_resampler_cache_serializes_concurrent_first_use(
+    monkeypatch, clear_cpu_resampler_cache
+) -> None:
+    construction_count = 0
+    count_lock = threading.Lock()
+
+    class CountingResampler:
+        def __init__(self, source_sample_rate: int, target_sample_rate: int) -> None:
+            nonlocal construction_count
+            with count_lock:
+                construction_count += 1
+            time.sleep(0.01)
+
+        def __call__(self, waveform):
+            return waveform[..., ::3]
+
+    monkeypatch.setattr(audio.torchaudio.transforms, "Resample", CountingResampler)
+    waveform = np.zeros(4800, dtype=np.float32)
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        results = list(
+            executor.map(
+                lambda _: audio._resample_cpu_audio(
+                    torch.from_numpy(waveform), 48000, 16000
+                ),
+                range(8),
+            )
+        )
+
+    assert construction_count == 1
+    assert all(result.shape == (1600,) for result in results)
+
+
+def test_custom_resampling_policy_uses_functional_path(
+    monkeypatch, clear_cpu_resampler_cache
+) -> None:
+    wav = _sine_wav_bytes(sample_rate=48000)
+    real_resample = audio.torchaudio.functional.resample
+    calls = []
+
+    def fail_resampler(*args, **kwargs):
+        raise AssertionError("custom resampling policy must not use cached defaults")
+
+    def counting_resample(waveform, source_rate, target_rate, **kwargs):
+        calls.append((source_rate, target_rate, kwargs))
+        return real_resample(waveform, source_rate, target_rate, **kwargs)
+
+    monkeypatch.setattr(audio.torchaudio.transforms, "Resample", fail_resampler)
+    monkeypatch.setattr(audio.torchaudio.functional, "resample", counting_resample)
+
+    samples = load_audio(wav, resample_kwargs={"lowpass_filter_width": 8})
+
+    assert samples.shape == (1600,)
+    assert calls == [(48000, 16000, {"lowpass_filter_width": 8})]
 
 
 def test_load_audio_trims_before_resampling() -> None:
