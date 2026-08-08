@@ -103,8 +103,9 @@ def make_qwen3_asr_scheduler_adapters(
 
     audio_pad_token_id = int(tokenizer.convert_tokens_to_ids(_AUDIO_PAD))
     eos_token_id = int(tokenizer.eos_token_id)
-    # Added tokens such as <asr_text> live above tokenizer.vocab_size. Req uses
-    # this bound to reject invalid model outputs, so include the added tokens.
+    # note (Xinyu): added tokens such as <asr_text> live above
+    # tokenizer.vocab_size. Req uses this bound to reject invalid model outputs,
+    # so include the added tokens.
     vocab_size = len(tokenizer)
     asr_text_token_ids = _encode_literal(tokenizer, _ASR_TEXT)
 
