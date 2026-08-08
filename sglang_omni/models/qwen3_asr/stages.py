@@ -22,7 +22,7 @@ def create_sglang_qwen3_asr_executor(
     request_build_max_workers: int = 8,
     request_build_max_pending: int | None = 32,
     prefill_coalesce_requests: int = 16,
-    prefill_coalesce_wait_ms: float = 12.0,
+    prefill_coalesce_wait_ms: float = 24.0,
     prefill_coalesce_when_idle: bool = True,
     prefill_coalesce_requires_pending_builds: bool = True,
     enable_pre_lm_encoder: bool = True,

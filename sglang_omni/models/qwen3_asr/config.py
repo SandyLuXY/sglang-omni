@@ -37,7 +37,7 @@ class Qwen3ASRPipelineConfig(PipelineConfig):
                 "request_build_max_workers": 8,
                 "request_build_max_pending": 32,
                 "prefill_coalesce_requests": 16,
-                "prefill_coalesce_wait_ms": 12,
+                "prefill_coalesce_wait_ms": 24,
                 "prefill_coalesce_when_idle": True,
                 "prefill_coalesce_requires_pending_builds": True,
                 "enable_pre_lm_encoder": True,
