@@ -24,6 +24,7 @@ def create_sglang_qwen3_asr_executor(
     prefill_coalesce_requests: int = 8,
     prefill_coalesce_wait_ms: float = 6.0,
     prefill_coalesce_when_idle: bool = True,
+    prefill_coalesce_requires_pending_builds: bool = True,
     enable_pre_lm_encoder: bool = True,
     pre_lm_cache_max_entries: int = 4096,
     pre_lm_cache_size_bytes: int = 2 * 1024**3,
@@ -47,6 +48,9 @@ def create_sglang_qwen3_asr_executor(
         prefill_coalesce_requests=prefill_coalesce_requests,
         prefill_coalesce_wait_ms=prefill_coalesce_wait_ms,
         prefill_coalesce_when_idle=prefill_coalesce_when_idle,
+        prefill_coalesce_requires_pending_builds=(
+            prefill_coalesce_requires_pending_builds
+        ),
         enable_pre_lm_encoder=enable_pre_lm_encoder,
         pre_lm_cache_max_entries=pre_lm_cache_max_entries,
         pre_lm_cache_size_bytes=pre_lm_cache_size_bytes,
