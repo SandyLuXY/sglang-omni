@@ -105,7 +105,7 @@ def test_parse_args_rejects_profiling_reused_results() -> None:
         )
 
 
-def test_profiled_pass_collects_breakdown_and_uses_scoped_stop(
+def test_profiled_pass_delegates_shared_lifecycle(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     module = _load_benchmark_module()
@@ -122,21 +122,10 @@ def test_profiled_pass_collects_breakdown_and_uses_scoped_stop(
             "/tmp/moss-profile",
         ]
     )
-    started: list[tuple[str, str, str]] = []
-    stopped: list[tuple[str, str]] = []
+    lifecycle: dict[str, object] = {}
     run_kwargs: dict[str, object] = {}
 
     monkeypatch.setattr(module.time, "time", lambda: 123)
-    monkeypatch.setattr(
-        module,
-        "start_request_profile",
-        lambda url, run_id, event_dir: started.append((url, run_id, event_dir)),
-    )
-    monkeypatch.setattr(
-        module,
-        "stop_request_profile",
-        lambda url, run_id: stopped.append((url, run_id)),
-    )
 
     async def fake_run_eval(samples, **kwargs):
         run_kwargs.update(kwargs)
@@ -151,67 +140,28 @@ def test_profiled_pass_collects_breakdown_and_uses_scoped_stop(
         ], 2.0
 
     monkeypatch.setattr(module, "run_eval", fake_run_eval)
-    monkeypatch.setattr(
-        module,
-        "build_stage_breakdown",
-        lambda event_dir: {
-            "request_count": 1,
-            "stage_breakdown": {"asr": {"count": 1}},
-            "hop_breakdown": {},
-        },
-    )
+
+    async def fake_run_profiled_pass(**kwargs):
+        lifecycle.update(kwargs)
+        return {"pass_metrics": await kwargs["run_pass"]()}
+
+    monkeypatch.setattr(module, "run_profiled_pass", fake_run_profiled_pass)
 
     profile = asyncio.run(module._run_profiled_pass(args, [], "http://router:8000"))
 
     run_id = "moss-td-aishell4_long-c4-123"
     event_dir = f"/tmp/moss-profile/{run_id}"
-    assert started == [
-        ("http://worker-0:8000", run_id, event_dir),
-        ("http://worker-1:8000", run_id, event_dir),
+    assert lifecycle["run_id"] == run_id
+    assert lifecycle["event_dir"] == event_dir
+    assert lifecycle["profile_urls"] == [
+        "http://worker-0:8000",
+        "http://worker-1:8000",
     ]
-    assert stopped == [
-        ("http://worker-0:8000", run_id),
-        ("http://worker-1:8000", run_id),
-    ]
+    assert lifecycle["log_prefix"] == "[conc=4]"
+    assert lifecycle["error_stream"] is module.sys.stderr
     assert run_kwargs["warmup"] == 0
     assert profile is not None
-    assert profile["request_count"] == 1
-    assert profile["stage_breakdown"] == {"asr": {"count": 1}}
     assert profile["pass_metrics"]["wall_clock_s"] == 2.0
-
-
-def test_profiled_pass_cleans_up_workers_after_partial_start_failure(
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    module = _load_benchmark_module()
-    args = module.parse_args(
-        [
-            "--profile-events",
-            "--profile-urls",
-            "http://worker-0:8000,http://worker-1:8000",
-        ]
-    )
-    stopped: list[tuple[str, str]] = []
-
-    def fake_start(url: str, run_id: str, event_dir: str) -> None:
-        if url.endswith("worker-1:8000"):
-            raise module.requests.RequestException("unavailable")
-
-    monkeypatch.setattr(module, "start_request_profile", fake_start)
-    monkeypatch.setattr(
-        module,
-        "stop_request_profile",
-        lambda url, run_id: stopped.append((url, run_id)),
-    )
-
-    profile = asyncio.run(module._run_profiled_pass(args, [], "http://router:8000"))
-
-    assert profile is None
-    assert len(stopped) == 1
-    assert stopped[0][0] == "http://worker-0:8000"
-    assert stopped[0][1].startswith("moss-td-movies800times-c16-")
-    assert "profiling unavailable, skipping: unavailable" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize(

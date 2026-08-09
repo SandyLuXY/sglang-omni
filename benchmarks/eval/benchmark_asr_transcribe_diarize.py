@@ -49,7 +49,6 @@ from pathlib import Path
 from typing import Final
 
 import aiohttp
-import requests
 import soundfile
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -63,11 +62,7 @@ from benchmarks.benchmarker.utils import (
     save_json_results,
     wait_for_service,
 )
-from benchmarks.eval.asr_profiling import (
-    build_stage_breakdown,
-    start_request_profile,
-    stop_request_profile,
-)
+from benchmarks.eval.asr_profiling import run_profiled_pass
 from benchmarks.metrics._format import SPEED_LABEL_WIDTH, SPEED_LINE_WIDTH
 from benchmarks.metrics.performance import compute_speed_metrics
 from benchmarks.tasks.transcribe_diarize import (
@@ -704,28 +699,8 @@ async def _run_profiled_pass(
     profile_urls = [
         url.strip() for url in args.profile_urls.split(",") if url.strip()
     ] or [base_url]
-    started: list[str] = []
-    try:
-        for url in profile_urls:
-            start_request_profile(url, run_id, event_dir)
-            started.append(url)
-    except requests.RequestException as exc:
-        for url in started:
-            try:
-                stop_request_profile(url, run_id)
-            except requests.RequestException as stop_exc:
-                print(
-                    f"[conc={args.concurrency}] failed to stop profiling on "
-                    f"{url}: {stop_exc}",
-                    file=sys.stderr,
-                )
-        print(
-            f"[conc={args.concurrency}] profiling unavailable, skipping: {exc}",
-            file=sys.stderr,
-        )
-        return None
 
-    try:
+    async def run_pass() -> dict[str, object]:
         outputs, wall_clock_s = await run_eval(
             samples,
             base_url=base_url,
@@ -739,28 +714,18 @@ async def _run_profiled_pass(
             max_new_tokens=args.max_new_tokens,
             stream=args.stream,
         )
-    finally:
-        for url in started:
-            try:
-                stop_request_profile(url, run_id)
-            except requests.RequestException as stop_exc:
-                print(
-                    f"[conc={args.concurrency}] failed to stop profiling on "
-                    f"{url}: {stop_exc}",
-                    file=sys.stderr,
-                )
+        pass_metrics = compute_speed_metrics(outputs, wall_clock_s=wall_clock_s)
+        pass_metrics["wall_clock_s"] = wall_clock_s
+        return pass_metrics
 
-    pass_metrics = compute_speed_metrics(outputs, wall_clock_s=wall_clock_s)
-    pass_metrics["wall_clock_s"] = wall_clock_s
-    report = build_stage_breakdown(event_dir)
-    return {
-        "run_id": run_id,
-        "event_dir": event_dir,
-        "pass_metrics": pass_metrics,
-        "request_count": report.get("request_count"),
-        "stage_breakdown": report.get("stage_breakdown"),
-        "hop_breakdown": report.get("hop_breakdown"),
-    }
+    return await run_profiled_pass(
+        run_id=run_id,
+        event_dir=event_dir,
+        profile_urls=profile_urls,
+        run_pass=run_pass,
+        log_prefix=f"[conc={args.concurrency}]",
+        error_stream=sys.stderr,
+    )
 
 
 def _run_from_asr_results(args: argparse.Namespace) -> tuple[EvaluationPayload, str]:
