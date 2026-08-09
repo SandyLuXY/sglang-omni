@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import importlib.util
 import json
 import sys
@@ -71,6 +72,146 @@ def test_parse_args_uses_googletime_preset() -> None:
     assert args.max_samples is None
     assert args.max_new_tokens == module.DEFAULT_MAX_NEW_TOKENS
     assert args.output_dir == module.GOOGLETIME_OUTPUT_DIR
+
+
+def test_parse_args_supports_request_event_profiling() -> None:
+    module = _load_benchmark_module()
+
+    args = module.parse_args(
+        [
+            "--profile-events",
+            "--profile-urls",
+            "http://worker-0:8000,http://worker-1:8000",
+            "--profile-event-dir",
+            "/tmp/moss-profile",
+        ]
+    )
+
+    assert args.profile_events is True
+    assert args.profile_urls == "http://worker-0:8000,http://worker-1:8000"
+    assert args.profile_event_dir == "/tmp/moss-profile"
+
+
+def test_parse_args_rejects_profiling_reused_results() -> None:
+    module = _load_benchmark_module()
+
+    with pytest.raises(SystemExit, match="2"):
+        module.parse_args(
+            [
+                "--profile-events",
+                "--reuse-asr-results",
+                "/tmp/raw-results.json",
+            ]
+        )
+
+
+def test_profiled_pass_collects_breakdown_and_uses_scoped_stop(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_benchmark_module()
+    args = module.parse_args(
+        [
+            "--dataset",
+            "aishell4_long",
+            "--concurrency",
+            "4",
+            "--profile-events",
+            "--profile-urls",
+            "http://worker-0:8000,http://worker-1:8000",
+            "--profile-event-dir",
+            "/tmp/moss-profile",
+        ]
+    )
+    started: list[tuple[str, str, str]] = []
+    stopped: list[tuple[str, str]] = []
+    run_kwargs: dict[str, object] = {}
+
+    monkeypatch.setattr(module.time, "time", lambda: 123)
+    monkeypatch.setattr(
+        module,
+        "start_request_profile",
+        lambda url, run_id, event_dir: started.append((url, run_id, event_dir)),
+    )
+    monkeypatch.setattr(
+        module,
+        "stop_request_profile",
+        lambda url, run_id: stopped.append((url, run_id)),
+    )
+
+    async def fake_run_eval(samples, **kwargs):
+        run_kwargs.update(kwargs)
+        return [
+            RequestResult(
+                request_id="sample-1",
+                is_success=True,
+                latency_s=1.0,
+                audio_duration_s=2.0,
+                rtf=0.5,
+            )
+        ], 2.0
+
+    monkeypatch.setattr(module, "run_eval", fake_run_eval)
+    monkeypatch.setattr(
+        module,
+        "build_stage_breakdown",
+        lambda event_dir: {
+            "request_count": 1,
+            "stage_breakdown": {"asr": {"count": 1}},
+            "hop_breakdown": {},
+        },
+    )
+
+    profile = asyncio.run(module._run_profiled_pass(args, [], "http://router:8000"))
+
+    run_id = "moss-td-aishell4_long-c4-123"
+    event_dir = f"/tmp/moss-profile/{run_id}"
+    assert started == [
+        ("http://worker-0:8000", run_id, event_dir),
+        ("http://worker-1:8000", run_id, event_dir),
+    ]
+    assert stopped == [
+        ("http://worker-0:8000", run_id),
+        ("http://worker-1:8000", run_id),
+    ]
+    assert run_kwargs["warmup"] == 0
+    assert profile is not None
+    assert profile["request_count"] == 1
+    assert profile["stage_breakdown"] == {"asr": {"count": 1}}
+    assert profile["pass_metrics"]["wall_clock_s"] == 2.0
+
+
+def test_profiled_pass_cleans_up_workers_after_partial_start_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    module = _load_benchmark_module()
+    args = module.parse_args(
+        [
+            "--profile-events",
+            "--profile-urls",
+            "http://worker-0:8000,http://worker-1:8000",
+        ]
+    )
+    stopped: list[tuple[str, str]] = []
+
+    def fake_start(url: str, run_id: str, event_dir: str) -> None:
+        if url.endswith("worker-1:8000"):
+            raise module.requests.RequestException("unavailable")
+
+    monkeypatch.setattr(module, "start_request_profile", fake_start)
+    monkeypatch.setattr(
+        module,
+        "stop_request_profile",
+        lambda url, run_id: stopped.append((url, run_id)),
+    )
+
+    profile = asyncio.run(module._run_profiled_pass(args, [], "http://router:8000"))
+
+    assert profile is None
+    assert len(stopped) == 1
+    assert stopped[0][0] == "http://worker-0:8000"
+    assert stopped[0][1].startswith("moss-td-movies800times-c16-")
+    assert "profiling unavailable, skipping: unavailable" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize(
@@ -381,7 +522,14 @@ def test_eval_saves_speed_results_before_accuracy_metrics(
         )
     ]
 
-    path = module._save_and_print_speed_results(args, outputs, wall_clock_s=2.0)
+    profile = {"run_id": "profile-1", "stage_breakdown": {"asr": {"count": 1}}}
+    path = module._save_and_print_speed_results(
+        args,
+        outputs,
+        wall_clock_s=2.0,
+        profile=profile,
+        include_profile=True,
+    )
     speed_payload = json.loads(Path(path).read_text())
     printed = capsys.readouterr().out
 
@@ -390,8 +538,31 @@ def test_eval_saves_speed_results_before_accuracy_metrics(
     assert speed_payload["speed"]["completed_requests"] == 1
     assert speed_payload["speed"]["throughput_qps"] == 0.5
     assert speed_payload["speed"]["rtf_mean"] == 0.3
+    assert speed_payload["profile"] == profile
     assert "ASR Speed Result" in printed
     assert "ASR requests only" in printed
+
+
+def test_eval_saves_profile_in_final_results(tmp_path: Path) -> None:
+    module = _load_benchmark_module()
+    profile = {"run_id": "profile-1", "hop_breakdown": {"asr->done": {"count": 1}}}
+    payload = {
+        "config": {},
+        "summary": {},
+        "speed": {},
+        "diarization_metrics": {},
+        "diarization_metrics_percent": {},
+        "per_sample": [],
+    }
+
+    path = module._save_payload(
+        Namespace(output_dir=str(tmp_path)),
+        payload,
+        profile=profile,
+        include_profile=True,
+    )
+
+    assert json.loads(Path(path).read_text())["profile"] == profile
 
 
 def test_merge_concat_references_shifts_and_remaps() -> None:
