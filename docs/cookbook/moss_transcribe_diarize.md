@@ -185,8 +185,8 @@ python -m benchmarks.eval.benchmark_asr_transcribe_diarize \
   --mem-fraction-static 0.80 \
   --output-dir results/moss_transcribe_diarize_movies800times
 
-# Add one dedicated request-event profiling pass after the measured evaluation.
-# The profiler pass is excluded from the reported accuracy and speed metrics.
+# note (Xinyu): Add one dedicated request-event profiling pass after the measured
+# evaluation. This pass is excluded from reported accuracy and speed metrics.
 python -m benchmarks.eval.benchmark_asr_transcribe_diarize \
   --dataset movies800times \
   --concurrency 16 \
