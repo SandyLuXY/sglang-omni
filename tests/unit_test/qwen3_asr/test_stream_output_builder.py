@@ -20,9 +20,16 @@ class _ByteTokenizer:
         self,
         vocab: dict[int, bytes],
         special_token_ids: set[int] | None = None,
+        asr_text_token_ids: tuple[int, ...] = (100,),
     ) -> None:
         self._vocab = vocab
         self._special = special_token_ids or set()
+        self._asr_text_token_ids = asr_text_token_ids
+
+    def encode(self, text: str, *, add_special_tokens: bool = False) -> list[int]:
+        assert text == "<asr_text>"
+        assert not add_special_tokens
+        return list(self._asr_text_token_ids)
 
     def decode(
         self,
@@ -43,6 +50,7 @@ def _make_req_data(
     stream: bool = True,
     inflight_middle_chunks: int = 0,
     finished: bool = False,
+    language: str | None = "en",
 ) -> Any:
     stage_payload = StagePayload(
         request_id="r",
@@ -57,7 +65,11 @@ def _make_req_data(
         inflight_middle_chunks=inflight_middle_chunks,
         finished=lambda: finished,
     )
-    return SimpleNamespace(req=req, stage_payload=stage_payload)
+    return SimpleNamespace(
+        req=req,
+        stage_payload=stage_payload,
+        language=language,
+    )
 
 
 def _make_req_output(token_id: int | None) -> Any:
@@ -95,15 +107,71 @@ def test_qwen3_asr_stream_emits_text_delta() -> None:
     assert message.metadata == {"modality": "text", "token_id": 1}
 
 
+def test_qwen3_asr_stream_suppresses_auto_detected_language_prefix() -> None:
+    tokenizer = _ByteTokenizer(
+        {
+            1: b"language",
+            2: b" English",
+            3: b"<asr_",
+            4: b"text>",
+            5: b"How",
+            6: b" many",
+        },
+        asr_text_token_ids=(3, 4),
+    )
+    builder = make_qwen3_asr_stream_output_builder(tokenizer=tokenizer)
+    req_data = _make_req_data(language=None)
+
+    prefix_messages = [
+        builder("r", req_data, _make_req_output(token_id)) for token_id in (1, 2, 3, 4)
+    ]
+    transcript_messages = [
+        *builder("r", req_data, _make_req_output(5)),
+        *builder("r", req_data, _make_req_output(6)),
+    ]
+
+    assert prefix_messages == [[], [], [], []]
+    assert [message.data["text"] for message in transcript_messages] == [
+        "How",
+        " many",
+    ]
+
+
+def test_qwen3_asr_auto_language_stream_flushes_transcript_tail() -> None:
+    tokenizer = _ByteTokenizer(
+        {1: b"language English", 2: b"<asr_text>", 3: b"A", 4: b"B"},
+        asr_text_token_ids=(2,),
+    )
+    builder = make_qwen3_asr_stream_output_builder(
+        tokenizer=tokenizer,
+        min_emit_interval_s=3600.0,
+    )
+    req_data = _make_req_data(language=None)
+
+    assert builder("r", req_data, _make_req_output(1)) == []
+    assert builder("r", req_data, _make_req_output(2)) == []
+    assert [
+        message.data["text"] for message in builder("r", req_data, _make_req_output(3))
+    ] == ["A"]
+    assert builder("r", req_data, _make_req_output(4)) == []
+
+    req_data.req.finished = lambda: True
+    messages = builder.flush("r", req_data)
+
+    assert [message.data["text"] for message in messages] == ["B"]
+
+
 def test_qwen3_asr_stream_gates_prefill_and_non_streaming_requests() -> None:
     builder = _builder({1: b"A"})
-    prefill_data = _make_req_data(inflight_middle_chunks=1)
-    non_stream_data = _make_req_data(stream=False)
+    prefill_data = _make_req_data(inflight_middle_chunks=1, language=None)
+    non_stream_data = _make_req_data(stream=False, language=None)
 
     assert builder("prefill", prefill_data, _make_req_output(1)) == []
     assert builder("non-stream", non_stream_data, _make_req_output(1)) == []
     assert not hasattr(prefill_data.req, "_qwen3_asr_stream_pending_ids")
     assert not hasattr(non_stream_data.req, "_qwen3_asr_stream_pending_ids")
+    assert not hasattr(prefill_data.req, "_qwen3_asr_stream_marker_match_len")
+    assert not hasattr(non_stream_data.req, "_qwen3_asr_stream_marker_match_len")
 
 
 def test_qwen3_asr_stream_rate_limit_holds_then_eos_flushes() -> None:
