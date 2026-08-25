@@ -2,6 +2,8 @@
 
 [Qwen3-ASR](https://huggingface.co/Qwen/Qwen3-ASR-1.7B) is an audio transcription model served through the OpenAI-compatible `/v1/audio/transcriptions` endpoint. It accepts one uploaded audio file per request and returns text.
 
+Qwen3-ASR does not support `/v1/audio/translations`; that endpoint returns HTTP 400. Use `/v1/audio/transcriptions`.
+
 ## Prerequisites
 
 Install `sglang-omni` by following [Installation](../get_started/installation.md), then download the model:
@@ -18,8 +20,8 @@ the checkpoint configuration (BF16 for Qwen3-ASR-1.7B); pass
 `--stages.asr.factory-args.dtype float16` to force FP16.
 Async decode is enabled by default for all decode batch sizes, allowing the
 shared one-step-lookahead path to overlap host-side result processing with the
-next GPU decode forward even for a single request. Use `--decode-mode sync` to
-disable it, or tune the crossover with `--async-lookahead-min-batch-size`.
+next GPU decode forward even for a single request. Use `--asr.factory.enable_async_decode false` to
+disable it, or tune the crossover with `--asr.factory.async_decode_min_batch_size`.
 The request builders also use the shared LM prefill-admission gate: prefill
 starts when 16 built requests are ready or after the oldest ready request waits
 40 ms. Once request-build work drains, a ready prefill is released immediately
@@ -51,7 +53,7 @@ For example, force synchronous decode when comparing modes:
 ```bash
 sgl-omni serve \
   --model-path Qwen/Qwen3-ASR-1.7B \
-  --decode-mode sync \
+  --asr.factory.enable_async_decode false \
   --port 8000
 ```
 
@@ -82,6 +84,34 @@ resp.raise_for_status()
 print(resp.json()["text"])
 ```
 
+## Stream Transcription
+
+Set `stream=true` to receive incremental transcript deltas over SSE. Use
+`curl -N` to disable client-side response buffering:
+
+```bash
+curl -N -X POST http://localhost:8000/v1/audio/transcriptions \
+  -F model=Qwen/Qwen3-ASR-1.7B \
+  -F file=@tests/data/query_to_cars.wav \
+  -F language=en \
+  -F response_format=json \
+  -F stream=true
+```
+
+The stream contains zero or more delta events, followed by the complete final
+transcript and the SSE sentinel:
+
+```text
+data: {"type":"transcript.text.delta","delta":"..."}
+
+data: {"type":"transcript.text.done","text":"..."}
+
+data: [DONE]
+```
+
+Qwen3-ASR batches deltas for up to 50 ms by default. EOS and other terminal
+conditions flush any buffered text before the final transcript event.
+
 ## Request Parameters
 
 | Parameter | Type | Default | Description |
@@ -93,7 +123,7 @@ print(resp.json()["text"])
 | `response_format` | string | `json` | `json`, `verbose_json`, or `text` |
 | `temperature` | float | `0` | Sampling temperature; `0` uses greedy decoding |
 | `max_new_tokens` | integer | server stage limit | Per-request generation-token limit |
-| `stream` | boolean | `false` | Return transcript events over SSE |
+| `stream` | boolean | `false` | Return SSE transcript deltas; supports `json` or `text` response format |
 
 `verbose_json` uses the model adapter's verbose response schema and includes
 duration-based usage (rounded-up audio seconds) when duration probing succeeds.
@@ -119,6 +149,35 @@ silently falling back to English.
 
 The model also has ASR coverage for 22 Chinese dialects, but those dialect names
 are not supported as forced `language` hints; use `Chinese`/`zh` for them.
+
+## Long Audio
+
+The current Qwen3-ASR model accepts at most 1,200 seconds of audio in one
+request, so we transcribe longer uploads in chunks: we split the audio, run
+each chunk as its own engine request, and join the transcripts back in
+order. The behavior follows these values, which Qwen3-ASR declares in code
+(`Qwen3ASRPipelineConfig.audio_chunking`). They are fixed model defaults in
+this release:
+
+| Name | Value | Meaning |
+|---|---|---|
+| `max_audio_clip_s` | `60` | Longest clip we send to the engine in one request, and therefore the chunk length. It sits well below the model's native 1,200s on purpose: shorter chunks batch better, and the output-token budget scales with clip length on its own. |
+| `max_native_clip_s` | `1200` | Longest clip the model takes as one request (its native limit). Streaming cannot chunk, so this is the streaming cutoff. |
+| `max_total_audio_s` | `3600` | Upper limit on the whole upload; you get HTTP 400 above it. This is a memory guard: we keep the decoded waveform in memory while its chunks run. |
+| `max_concurrent_chunks` | `8` | How many chunks of one request run in the engine at once. A per-request cap so one long upload can't crowd out everyone else's requests. |
+| `min_tail_s` | `0.5` | Shortest final chunk worth transcribing; if the tail would be shorter, we move the previous cut earlier to absorb it. This matches the model's own minimum input length. |
+
+Behavior notes:
+
+- **`verbose_json` returns one segment per chunk** with the chunk's real
+  start/end timestamps -- chunk-level granularity, not word-level (Qwen3-ASR
+  does not emit word timestamps).
+- A few unusual audio formats may not expose a readable duration; we fall
+  back to the non-chunked path for those uploads.
+- Streamed responses (`stream=true`) do not support chunking yet; a stream
+  request runs as one engine request, so it takes audio up to
+  `max_native_clip_s` (1,200s) and gets HTTP 400 above that -- use
+  `stream=false` for longer uploads.
 
 ## Benchmarking
 
@@ -193,7 +252,12 @@ Reading, and the resulting defaults:
 
 - **Build workers scale monotonically to 8** at every concurrency ≥ 8 and cost
   nothing at concurrency 1 (0.099–0.101 s mean everywhere), so 8 is the
-  default (it is also what lets the pre-LM encoder form real batches).
+  default. Those workers do CPU request construction (decode audio,
+  optional mel FFT) and submit encoder work asynchronously. When no extra
+  builds are queued, the request builder waits for encode and returns a
+  ready request like the sync path; when pending+backlog exceeds the
+  worker pool, it returns a deferred admission so workers can pull the
+  backlog. A cache hit still skips mel extraction entirely.
 - **Pending 16 → 32 removes all concurrency-64 shedding** and lifts
   concurrency-8 throughput ~19 %; 64 adds nothing further. 32 is the default.
 - **`max_running_requests` 16 collapses concurrency 32** (queue-bound) with no
@@ -204,7 +268,7 @@ Reading, and the resulting defaults:
 
 ```bash
 sgl-omni serve --model-path Qwen/Qwen3-ASR-1.7B \
-  --max-running-requests 32
+  --asr.engine.max_running_requests 32
 ```
 
 - Corpus WER stayed 0.0122 for every configuration at every level.
@@ -212,8 +276,8 @@ sgl-omni serve --model-path Qwen/Qwen3-ASR-1.7B \
 ## Known Limitations
 
 - The endpoint accepts one uploaded file per request.
-- Audio duration is bounded by the configured context and requested
-  `max_new_tokens`, rather than a fixed 30-second window. Split audio or reduce
-  `max_new_tokens` if the request exceeds that token budget.
+- Non-streaming uploads up to `max_total_audio_s` (default one hour) are
+  transcribed in full via chunking; see Long Audio above. Streaming requests
+  are limited to `max_native_clip_s` (1,200s).
 - `prompt` is accepted by the HTTP endpoint for OpenAI compatibility, but Qwen3-ASR currently ignores it.
 - Audio is resampled to 16 kHz before transcription.
